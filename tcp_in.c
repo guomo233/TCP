@@ -88,7 +88,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		wake_up (tsk->parent->wait_accept) ;
 	}
 
-	// Close
+	// Close - FIN
 	else if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
@@ -98,7 +98,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 	else if (tsk->state == TCP_FIN_WAIT_1 && cb->flags == TCP_ACK)
 		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
-	else if (tsk->state == TCP_FIN_WAIT_2 && cb->flags == TCP_FIN)
+	else if ((tsk->state == TCP_FIN_WAIT_2 || 
+		tsk->state == TCP_TIME_WAIT) && cb->flags == TCP_FIN)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
 		
@@ -111,16 +112,17 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	{
 		tcp_set_state (tsk, TCP_CLOSED) ;
 
-		tcp_unhash (tsk) ;
+		tcp_unhash (tsk) ;  // auto free memory
 	}
 
-
-	else if (tsk->state == TCP_CLOSED)
-		tcp_send_reset (cb) ;
+	// Close - RST
 	else if (cb->flags == TCP_RST)
 	{
-		tcp_unhash (tsk) ;
 		tcp_set_state (tsk, TCP_CLOSED) ;
+		
+		if (!tsk->parent)
+			tcp_bind_unhash (tsk) ;
+		tcp_unhash (tsk) ; // auto free memory
 	}
 	
 	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);

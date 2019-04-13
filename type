@@ -1,0 +1,509 @@
+./main.c:	list_for_each_entry(iface, &instance->iface_list, list) {
+./main.c:		if (iface->fd == fd)
+./main.c:	// 		iface->name, len, ntohs(eh->ether_type));
+./main.c:	switch (ntohs(eh->ether_type)) {
+./main.c:					ntohs(eh->ether_type));
+./main.c:		return -1;
+./main.c:		return -1;
+./main.c:		return -1;
+./main.c:		return -1;
+./main.c:		return -1;
+./main.c:	int fd = open_device(iface->name);
+./main.c:	iface->fd = fd;
+./main.c:	strcpy(ifr.ifr_name, iface->name);
+./main.c:	iface->index = ifr.ifr_ifindex;
+./main.c:	memcpy(&iface->mac, ifr.ifr_hwaddr.sa_data, sizeof(iface->mac));
+./main.c:	ip = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+./main.c:	iface->ip = ntohl(*(u32 *)&ip);
+./main.c:	strcpy(iface->ip_str, inet_ntoa(ip));
+./main.c:	mask = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+./main.c:	iface->mask = ntohl(*(u32 *)&mask);
+./main.c:	init_list_head(&instance->iface_list);
+./main.c:	for (addr = addrs; addr != NULL; addr = addr->ifa_next) {
+./main.c:		if (addr->ifa_addr && addr->ifa_addr->sa_family == AF_PACKET && \
+./main.c:				strstr(addr->ifa_name, "-eth") != NULL) {
+./main.c:			init_list_head(&iface->list);
+./main.c:			strcpy(iface->name, addr->ifa_name);
+./main.c:			list_add_tail(&iface->list, &instance->iface_list);
+./main.c:			instance->nifs += 1;
+./main.c:	if (instance->nifs == 0) {
+./main.c:	list_for_each_entry(iface, &instance->iface_list, list) {
+./main.c:		sprintf(dev_names + strlen(dev_names), " %s", iface->name);
+./main.c:	instance->fds = malloc(sizeof(struct pollfd) * instance->nifs);
+./main.c:	bzero(instance->fds, sizeof(struct pollfd) * instance->nifs);
+./main.c:	list_for_each_entry(iface, &instance->iface_list, list) {
+./main.c:		instance->fds[i].fd = fd;
+./main.c:		instance->fds[i].events |= POLLIN;
+./main.c:	init_list_head(&instance->iface_list);
+./main.c:		int ready = poll(instance->fds, instance->nifs, -1);
+./main.c:		for (int i = 0; i < instance->nifs; i++) {
+./main.c:			if (instance->fds[i].revents & POLLIN) {
+./main.c:				len = recvfrom(instance->fds[i].fd, buf, ETH_FRAME_LEN, 0, \
+./main.c:					iface_info_t *iface = fd_to_iface(instance->fds[i].fd);
+./main.c:	run_application(basename(argv[0]), argv+1, argc-1);
+Binary file ./libipstack.a matches
+./tcp.c:	"SYN_SENT", "ESTABLISHED", "CLOSE_WAIT", "LAST_ACK", "FIN_WAIT-1",
+./tcp.c:	"FIN_WAIT-2", "CLOSING", "TIME_WAIT",
+./tcp.c:		buf[len-1] = '\0';
+./tcp.c:	int len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp);
+./tcp.c:	cb->saddr = ntohl(ip->saddr);
+./tcp.c:	cb->daddr = ntohl(ip->daddr);
+./tcp.c:	cb->sport = ntohs(tcp->sport);
+./tcp.c:	cb->dport = ntohs(tcp->dport);
+./tcp.c:	cb->seq = ntohl(tcp->seq);
+./tcp.c:	cb->seq_end = cb->seq + len + ((tcp->flags & (TCP_SYN|TCP_FIN)) ? 1 : 0);
+./tcp.c:	cb->ack = ntohl(tcp->ack);
+./tcp.c:	cb->payload = (char *)tcp + tcp->off * 4;
+./tcp.c:	cb->pl_len = len;
+./tcp.c:	cb->rwnd = ntohs(tcp->rwnd);
+./tcp.c:	cb->flags = tcp->flags;
+./tcp.c:	if (tcp_checksum(ip, tcp) != tcp->checksum) {
+./tcp_topo_loss.py:    h1.cmd('ifconfig h1-eth0 10.0.0.1/24')
+./tcp_topo_loss.py:    h2.cmd('ifconfig h2-eth0 10.0.0.2/24')
+./create_randfile.sh:dd if=/dev/urandom bs=2MB count=1 | base64 > client-input.dat
+./tcp_out.c:	tcp->sport = htons(sport);
+./tcp_out.c:	tcp->dport = htons(dport);
+./tcp_out.c:	tcp->seq = htonl(seq);
+./tcp_out.c:	tcp->ack = htonl(ack);
+./tcp_out.c:	tcp->off = TCP_HDR_OFFSET;
+./tcp_out.c:	tcp->flags = flags;
+./tcp_out.c:	tcp->rwnd = htons(rwnd);
+./tcp_out.c:	int ip_tot_len = len - ETHER_HDR_SIZE;
+./tcp_out.c:	int tcp_data_len = ip_tot_len - IP_BASE_HDR_SIZE - TCP_BASE_HDR_SIZE;
+./tcp_out.c:	u32 saddr = tsk->sk_sip;
+./tcp_out.c:	u32	daddr = tsk->sk_dip;
+./tcp_out.c:	u16 sport = tsk->sk_sport;
+./tcp_out.c:	u16 dport = tsk->sk_dport;
+./tcp_out.c:	u32 seq = tsk->snd_nxt;
+./tcp_out.c:	u32 ack = tsk->rcv_nxt;
+./tcp_out.c:	u16 rwnd = tsk->rcv_wnd;
+./tcp_out.c:	tcp->checksum = tcp_checksum(ip, tcp);
+./tcp_out.c:	ip->checksum = ip_checksum(ip);
+./tcp_out.c:	tsk->snd_nxt += tcp_data_len;
+./tcp_out.c:	tsk->snd_wnd -= tcp_data_len;
+./tcp_out.c:	ip_init_hdr(ip, tsk->sk_sip, tsk->sk_dip, tot_len, IPPROTO_TCP);
+./tcp_out.c:	tcp_init_hdr(tcp, tsk->sk_sport, tsk->sk_dport, tsk->snd_nxt, \
+./tcp_out.c:			tsk->rcv_nxt, flags, tsk->rcv_wnd);
+./tcp_out.c:	tcp->checksum = tcp_checksum(ip, tcp);
+./tcp_out.c:		tsk->snd_nxt += 1;
+./tcp_out.c:	ip_init_hdr(ip, cb->daddr, cb->saddr, tot_len, IPPROTO_TCP);
+./tcp_out.c:	tcp_init_hdr(tcp, cb->dport, cb->sport, 0, cb->seq_end, TCP_RST|TCP_ACK, 0);
+./tcp_out.c:	tcp->checksum = tcp_checksum(ip, tcp);
+./include/synch_wait.h:	pthread_cond_init(&wait->cond, NULL);
+./include/synch_wait.h:	pthread_mutex_init(&wait->lock, NULL);
+./include/synch_wait.h:	wait->dead = 0;
+./include/synch_wait.h:	wait->notified = 0;
+./include/synch_wait.h:	wait->sleep = 0;
+./include/synch_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/synch_wait.h:	if (wait->dead)
+./include/synch_wait.h:	wait->dead = 1;
+./include/synch_wait.h:	if (wait->sleep)
+./include/synch_wait.h:		pthread_cond_broadcast(&wait->cond);
+./include/synch_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/synch_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/synch_wait.h:	if (wait->dead)
+./include/synch_wait.h:	wait->sleep = 1;
+./include/synch_wait.h:	if (!wait->notified)
+./include/synch_wait.h:		pthread_cond_wait(&wait->cond, &wait->lock);
+./include/synch_wait.h:	wait->notified = 0;
+./include/synch_wait.h:	wait->sleep = 0;
+./include/synch_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/synch_wait.h:	return -(wait->dead);
+./include/synch_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/synch_wait.h:	if (wait->dead)
+./include/synch_wait.h:	if (!wait->notified) {
+./include/synch_wait.h:		wait->notified = 1;
+./include/synch_wait.h:		if (wait->sleep)
+./include/synch_wait.h:			pthread_cond_signal(&wait->cond);
+./include/synch_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/synch_wait.h:	return -(wait->dead);
+./include/ring_buffer.h:	rbuf->size = size + 1;
+./include/ring_buffer.h:	return (rbuf->tail - rbuf->head + rbuf->size) % (rbuf->size);
+./include/ring_buffer.h:	return rbuf->size - ring_buffer_used(rbuf) - 1;
+./include/ring_buffer.h:		if (rbuf->head + len > rbuf->size) {
+./include/ring_buffer.h:			int right = rbuf->size - rbuf->head,
+./include/ring_buffer.h:				left = len - right;
+./include/ring_buffer.h:			memcpy(buf, rbuf->buf + rbuf->head, right);
+./include/ring_buffer.h:			memcpy(buf + right, rbuf->buf, left);
+./include/ring_buffer.h:			memcpy(buf, rbuf->buf + rbuf->head, len);
+./include/ring_buffer.h:		rbuf->head = (rbuf->head + len) % (rbuf->size);
+./include/ring_buffer.h:		if (rbuf->tail + len > rbuf->size) {
+./include/ring_buffer.h:			int right = rbuf->size - rbuf->tail,
+./include/ring_buffer.h:				left = len - right;
+./include/ring_buffer.h:			memcpy(rbuf->buf + rbuf->tail, buf, right);
+./include/ring_buffer.h:			memcpy(rbuf->buf, buf + right, left);
+./include/ring_buffer.h:			memcpy(rbuf->buf + rbuf->tail, buf, len);
+./include/ring_buffer.h:		rbuf->tail = (rbuf->tail + len) % (rbuf->size);
+./include/tcp_hash.h:#define TCP_HASH_MASK (TCP_HASH_SIZE - 1)
+./include/checksum.h:		sum += ((u8 *)buf)[nbytes-1];
+./include/arpcache.h:#define MAX_ARP_SIZE 32				// maximum number of IP->mac mapping entries
+./include/arpcache.h:#define ARP_ENTRY_TIMEOUT 15		// timeout for IP->mac entry
+./include/arpcache.h:	struct arp_cache_entry entries[MAX_ARP_SIZE];	// IP->max mapping entries
+./include/icmp.h:	u16 tmp = icmp->checksum;
+./include/icmp.h:	icmp->checksum = 0;
+./include/icmp.h:	icmp->checksum = tmp;
+./include/tcp_timer.h:	int type;	// time-wait: 0		retrans: 1
+./include/tcp_timer.h:	(struct tcp_sock *)((char *)(t) - offsetof(struct tcp_sock, timewait))
+./include/tcp_timer.h:	(struct tcp_sock *)((char *)(t) - offsetof(struct tcp_sock, retrans_timer))
+./include/tcp.h:#define less_or_equal_32b(a, b) (((int32_t)(a)-(int32_t)(b)) <= 0)
+./include/tcp.h:#define less_than_32b(a, b) (((int32_t)(a)-(int32_t)(b)) < 0)
+./include/tcp.h:#define greater_or_equal_32b(a, b) (((int32_t)(a)-(int32_t)(b)) >= 0)
+./include/tcp.h:#define greater_than_32b(a, b) (((int32_t)(a)-(int32_t)(b)) > 0)
+./include/tcp.h:#define TCP_HDR_SIZE(tcp) (tcp->off * 4)
+./include/tcp.h:	u16 tmp = tcp->checksum;
+./include/tcp.h:	tcp->checksum = 0;
+./include/tcp.h:	u16 reserv_proto = ip->protocol;
+./include/tcp.h:	u16 tcp_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip);
+./include/tcp.h:	u32 sum = ip->saddr + ip->daddr + htons(reserv_proto) + htons(tcp_len);
+./include/tcp.h:	tcp->checksum = tmp;
+./include/async_wait.h:	pthread_cond_init(&wait->cond, NULL);
+./include/async_wait.h:	pthread_mutex_init(&wait->lock, NULL);
+./include/async_wait.h:	wait->dead = 0;
+./include/async_wait.h:	wait->notified = 0;
+./include/async_wait.h:	wait->sleep = 0;
+./include/async_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/async_wait.h:	if (wait->dead)
+./include/async_wait.h:	wait->dead = 1;
+./include/async_wait.h:	if (wait->sleep)
+./include/async_wait.h:		pthread_cond_broadcast(&wait->cond);
+./include/async_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/async_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/async_wait.h:	if (wait->dead)
+./include/async_wait.h:	wait->sleep = 1;
+./include/async_wait.h:	if (!wait->notified)
+./include/async_wait.h:		pthread_cond_wait(&wait->cond, &wait->lock);
+./include/async_wait.h:	wait->notified = 0;
+./include/async_wait.h:	wait->sleep = 0;
+./include/async_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/async_wait.h:	return -(wait->dead);
+./include/async_wait.h:	pthread_mutex_lock(&wait->lock);
+./include/async_wait.h:	if (wait->dead)
+./include/async_wait.h:	if (!wait->notified) {
+./include/async_wait.h:		wait->notified = 1;
+./include/async_wait.h:		if (wait->sleep)
+./include/async_wait.h:			pthread_cond_signal(&wait->cond);
+./include/async_wait.h:	pthread_mutex_unlock(&wait->lock);
+./include/async_wait.h:	return -(wait->dead);
+./include/tcp_sock.h:	// sk_ip, sk_sport, sk_sip, sk_dport are the 4-tuple that represents a 
+./include/tcp_sock.h:	// when receiving the last packet (ACK) of the 3-way handshake, the tcp sock 
+./include/tcp_sock.h:	// used to pend out-of-order packets
+./include/tcp_sock.h:	tsk->ref_cnt += 1;
+./include/ip.h:#define IP_HDR_SIZE(hdr) (hdr->ihl * 4)
+./include/ip.h:	u16 tmp = hdr->checksum;
+./include/ip.h:	hdr->checksum = 0;
+./include/ip.h:	u16 sum = checksum((u16 *)hdr, hdr->ihl * 4, 0);
+./include/ip.h:	hdr->checksum = tmp;
+./include/hash.h:		result ^= (u8)(buf[len-1]);
+./include/list.h:#define list_empty(list) ((list)->next == (list))
+./include/list.h:		(type *)((char *)ptr - offsetof(type, member))
+./include/list.h:    for (pos = list_entry((head)->next, typeof(*pos), member); \
+./include/list.h:        	&pos->member != (head); \
+./include/list.h:        	pos = list_entry(pos->member.next, typeof(*pos), member)) 
+./include/list.h:    for (pos = list_entry((head)->next, typeof(*pos), member), \
+./include/list.h:	        q = list_entry(pos->member.next, typeof(*pos), member); \
+./include/list.h:	        &pos->member != (head); \
+./include/list.h:	        pos = q, q = list_entry(pos->member.next, typeof(*q), member))
+./include/list.h:	list->next = list->prev = list;
+./include/list.h:	next->prev = new;
+./include/list.h:	prev->next = new;
+./include/list.h:	new->next = next;
+./include/list.h:	new->prev = prev;
+./include/list.h:	list_insert(new, head, head->next);
+./include/list.h:	list_insert(new, head->prev, head);
+./include/list.h:	entry->next->prev = entry->prev;
+./include/list.h:	entry->prev->next = entry->next;
+./tcp_apps.c:	FILE *file = fopen("server-output.dat", "wb");
+./tcp_apps.c:				NET_IP_FMT_STR(skaddr->ip), ntohs(skaddr->port));
+./tcp_apps.c:	FILE *file = fopen("client-input.dat", "rb");
+./tcp_in.c:	u16 old_snd_wnd = tsk->snd_wnd;
+./tcp_in.c:	tsk->snd_wnd = cb->rwnd;
+./tcp_in.c:		wake_up(tsk->wait_send);
+./tcp_in.c:// update the snd_wnd safely: cb->ack should be between snd_una and snd_nxt
+./tcp_in.c:	if (less_or_equal_32b(tsk->snd_una, cb->ack) && less_or_equal_32b(cb->ack, tsk->snd_nxt))
+./tcp_in.c:	u32 rcv_end = tsk->rcv_nxt + max(tsk->rcv_wnd, 1);
+./tcp_in.c:	if (less_than_32b(cb->seq, rcv_end) && less_or_equal_32b(tsk->rcv_nxt, cb->seq_end)) {
+./tcp_in.c:	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
+./tcp_in.c:		csk->sk_sip = cb->daddr ;
+./tcp_in.c:		csk->sport = cb->dport ;
+./tcp_in.c:		csk->sk_dip = cb->saddr ;
+./tcp_in.c:		csk->dport = cb->sport ;
+./tcp_in.c:		csk->rcv_nxt = cb->seq_end ;
+./tcp_in.c:		csk->parent = tsk ;
+./tcp_in.c:		list_add_tail (&(csk->list), &(tsk->listen_queue)) ;
+./tcp_in.c:	else if (tsk->state == TCP_SYN_SENT && 
+./tcp_in.c:		cb->flags == (TCP_SYN | TCP_ACK))
+./tcp_in.c:		tsk->rcv_nxt = cb->seq_end ;
+./tcp_in.c:		wake_up (tsk->wait_connect) ;
+./tcp_in.c:	else if (tsk->state == TCP_SYN_RECV && cb->flags == TCP_ACK)
+./tcp_in.c:		list_delete_entry (&tsk->list) ;
+./tcp_in.c:		wake_up (tsk->parent->wait_accept) ;
+./tcp_in.c:	else if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
+./tcp_in.c:		tsk->rcv_nxt = cb->seq_end ;
+./tcp_in.c:	else if (tsk->state == TCP_FIN_WAIT_1 && cb->flags == TCP_ACK)
+./tcp_in.c:	else if (tsk->state == TCP_FIN_WAIT_2 && cb->flags == TCP_FIN)
+./tcp_in.c:		tsk->rcv_nxt = cb->seq_end ;
+./tcp_in.c:	else if (tsk->state == TCP_LAST_ACK && cb->flags == TCP_ACK)
+./tcp_in.c:	else if (tsk->state == TCP_CLOSED)
+./tcp_in.c:	else if (cb->flags == TCP_RST)
+Binary file ./libipstack32.a matches
+./scripts/disable_ipv6.sh:sysctl -w net.ipv6.conf.all.disable_ipv6=1
+./scripts/disable_ipv6.sh:sysctl -w net.ipv6.conf.default.disable_ipv6=1
+./scripts/disable_offloading.sh:for IFACE in `/sbin/ifconfig | grep '^.*-eth[0-9]' | awk '{print $1}'`; do
+./scripts/disable_offloading.sh:		/sbin/ethtool --offload "$IFACE" "$TOE_OPTION" off
+./scripts/disable_arp.sh:arptables -A FORWARD -j DROP
+./scripts/disable_arp.sh:arptables -A OUTPUT -j DROP
+./scripts/disable_icmp.sh:iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
+./scripts/disable_icmp.sh:iptables -A OUTPUT -p icmp --icmp-type echo-reply -j DROP
+./scripts/disable_icmp.sh:iptables -I OUTPUT -p icmp --icmp-type destination-unreachable -j DROP
+./scripts/disable_ip_forward.sh:iptables -A INPUT -p ip -j DROP
+./scripts/disable_tcp_rst.sh:iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
+./ip.c:	u32 daddr = ntohl(ip->daddr);
+./ip.c:	if (daddr == iface->ip) {
+./ip.c:		if (ip->protocol == IPPROTO_ICMP) {
+./ip.c:			if (icmp->type == ICMP_ECHOREQUEST) {
+./ip.c:		else if (ip->protocol == IPPROTO_TCP) {
+./ip.c:			log(ERROR, "unsupported IP protocol (0x%x) packet.", ip->protocol);
+./tcp_sock.c:			HOST_IP_FMT_STR(tsk->sk_sip), tsk->sk_sport, \
+./tcp_sock.c:			tcp_state_str[tsk->state], tcp_state_str[state]);
+./tcp_sock.c:	tsk->state = state;
+./tcp_sock.c:	tsk->state = TCP_CLOSED;
+./tcp_sock.c:	tsk->rcv_wnd = TCP_DEFAULT_WINDOW;
+./tcp_sock.c:	init_list_head(&tsk->list);
+./tcp_sock.c:	init_list_head(&tsk->listen_queue);
+./tcp_sock.c:	init_list_head(&tsk->accept_queue);
+./tcp_sock.c:	tsk->rcv_buf = alloc_ring_buffer(tsk->rcv_wnd);
+./tcp_sock.c:	tsk->wait_connect = alloc_wait_struct();
+./tcp_sock.c:	tsk->wait_accept = alloc_wait_struct();
+./tcp_sock.c:	tsk->wait_recv = alloc_wait_struct();
+./tcp_sock.c:	tsk->wait_send = alloc_wait_struct();
+./tcp_sock.c:	tsk->ref_cnt -= 1;
+./tcp_sock.c:	if (tsk->ref_cnt <= 0) {
+./tcp_sock.c:		log(DEBUG, "free tcp sock: ["IP_FMT":%hu<->"IP_FMT":%hu].", \
+./tcp_sock.c:				HOST_IP_FMT_STR(tsk->sk_sip), tsk->sk_sport,
+./tcp_sock.c:				HOST_IP_FMT_STR(tsk->sk_dip), tsk->sk_dport);
+./tcp_sock.c:		free_wait_struct(tsk->wait_connect);
+./tcp_sock.c:		free_wait_struct(tsk->wait_accept);
+./tcp_sock.c:		free_wait_struct(tsk->wait_recv);
+./tcp_sock.c:		free_wait_struct(tsk->wait_send);
+./tcp_sock.c:		free_ring_buffer(tsk->rcv_buf);
+./tcp_sock.c:		if (tsk->sk_sip == saddr && 
+./tcp_sock.c:			tsk->sk_sport == sport && 
+./tcp_sock.c:			tsk->sk_dip == daddr && 
+./tcp_sock.c:			tsk->dport == dport)
+./tcp_sock.c:		if (tsk->sport == sport)
+./tcp_sock.c:	u32 saddr = cb->daddr,
+./tcp_sock.c:		daddr = cb->saddr;
+./tcp_sock.c:	u16 sport = cb->dport,
+./tcp_sock.c:		dport = cb->sport;
+./tcp_sock.c:	int bind_hash_value = tcp_hash_function(0, 0, tsk->sk_sport, 0);
+./tcp_sock.c:	list_add_head(&tsk->bind_hash_list, list);
+./tcp_sock.c:	if (!list_empty(&tsk->bind_hash_list)) {
+./tcp_sock.c:		list_delete_entry(&tsk->bind_hash_list);
+./tcp_sock.c:		if (tsk->sk_sport == sport)
+./tcp_sock.c:		return -1;
+./tcp_sock.c:	tsk->sk_sport = port;
+./tcp_sock.c:	if (tsk->state == TCP_CLOSED)
+./tcp_sock.c:		return -1;
+./tcp_sock.c:	if (tsk->state == TCP_LISTEN) {
+./tcp_sock.c:		hash = tcp_hash_function(0, 0, tsk->sk_sport, 0);
+./tcp_sock.c:		int hash = tcp_hash_function(tsk->sk_sip, tsk->sk_dip, \
+./tcp_sock.c:				tsk->sk_sport, tsk->sk_dport); 
+./tcp_sock.c:			if (tsk->sk_sip == tmp->sk_sip &&
+./tcp_sock.c:					tsk->sk_dip == tmp->sk_dip &&
+./tcp_sock.c:					tsk->sk_sport == tmp->sk_sport &&
+./tcp_sock.c:					tsk->sk_dport == tmp->sk_dport)
+./tcp_sock.c:				return -1;
+./tcp_sock.c:	list_add_head(&tsk->hash_list, list);
+./tcp_sock.c:	if (!list_empty(&tsk->hash_list)) {
+./tcp_sock.c:		list_delete_entry(&tsk->hash_list);
+./tcp_sock.c:// XXX: skaddr here contains network-order variables
+./tcp_sock.c:	err = tcp_sock_set_sport(tsk, ntohs(skaddr->port));
+./tcp_sock.c:// XXX: skaddr here contains network-order variables
+./tcp_sock.c:	iface_info_t *iface = list_entry(instance->iface_list.next, 
+./tcp_sock.c:	tsk->sk_sip = iface->ip ;
+./tcp_sock.c:	tsk->sk_dip = skaddr->ip ;
+./tcp_sock.c:	tsk->sport = tcp_get_port () ;
+./tcp_sock.c:	tsk->dport = skaddr->port ;
+./tcp_sock.c:	sleep_on (tsk->wait_connect) ;
+./tcp_sock.c:	tsk->backlog = backlog ;
+./tcp_sock.c:	if (tsk->accept_backlog >= tsk->backlog) {
+./tcp_sock.c:		log(ERROR, "tcp accept queue (%d) is full.", tsk->accept_backlog);
+./tcp_sock.c:	if (!list_empty(&tsk->list))
+./tcp_sock.c:		list_delete_entry(&tsk->list);
+./tcp_sock.c:	list_add_tail(&tsk->list, &tsk->parent->accept_queue);
+./tcp_sock.c:	tsk->parent->accept_backlog += 1;
+./tcp_sock.c:	struct tcp_sock *new_tsk = list_entry(tsk->accept_queue.next, struct tcp_sock, list);
+./tcp_sock.c:	list_delete_entry(&new_tsk->list);
+./tcp_sock.c:	init_list_head(&new_tsk->list);
+./tcp_sock.c:	tsk->accept_backlog -= 1;
+./tcp_sock.c:	if (list_empty (&(tsk->accept_queue)))
+./tcp_sock.c:		sleep_on (tsk-wait_accept) ;
+./tcp_sock.c:	return -1;
+./tcp_sock.c:	if (tsk->state == TCP_ESTABLISHED)
+./tcp_sock.c:	else if (tsk->state == TCP_CLOSE_WAIT)
+./.git/config:	url = https://github.com/guomo233/TCP-Stack.git
+./.git/info/exclude:# git ls-files --others --exclude-from=.git/info/exclude
+Binary file ./.git/index matches
+./.git/hooks/pre-rebase.sample:# The "pre-rebase" hook is run just before "git rebase" starts doing
+./.git/hooks/pre-rebase.sample:# non-zero status.
+./.git/hooks/pre-rebase.sample:# $1 -- the upstream the series was forked from.
+./.git/hooks/pre-rebase.sample:# $2 -- the branch being rebased (or empty when rebasing the current branch).
+./.git/hooks/pre-rebase.sample:	topic=`git symbolic-ref HEAD` ||
+./.git/hooks/pre-rebase.sample:git show-ref -q "$topic" || {
+./.git/hooks/pre-rebase.sample:not_in_master=`git rev-list --pretty=oneline ^master "$topic"`
+./.git/hooks/pre-rebase.sample:if test -z "$not_in_master"
+./.git/hooks/pre-rebase.sample:only_next_1=`git rev-list ^master "^$topic" ${publish} | sort`
+./.git/hooks/pre-rebase.sample:only_next_2=`git rev-list ^master           ${publish} | sort`
+./.git/hooks/pre-rebase.sample:	not_in_topic=`git rev-list "^$topic" master`
+./.git/hooks/pre-rebase.sample:	if test -z "$not_in_topic"
+./.git/hooks/pre-rebase.sample:		echo >&2 "$topic is already up-to-date with master"
+./.git/hooks/pre-rebase.sample:	not_in_next=`git rev-list --pretty=oneline ^${publish} "$topic"`
+./.git/hooks/pre-rebase.sample:	/usr/bin/perl -e '
+./.git/hooks/pre-rebase.sample:			/^([0-9a-f]+) /;
+./.git/hooks/pre-rebase.sample:				/^([0-9a-f]+) (.*)$/;
+./.git/hooks/pre-rebase.sample:			if (!exists $not_in_next{$elem->[0]}) {
+./.git/hooks/pre-rebase.sample:				print STDERR " $elem->[1]\n";
+./.git/hooks/pre-rebase.sample:    build on top of it -- other people may already want to
+./.git/hooks/pre-rebase.sample:		   o---o---o---o---o---o---o---o---o---o "next"
+./.git/hooks/pre-rebase.sample:		 /   a---a---b A     /           /
+./.git/hooks/pre-rebase.sample:	       /   /   c---c---c---c B         /
+./.git/hooks/pre-rebase.sample:	     /   /   /   b---b C     \       /
+./.git/hooks/pre-rebase.sample:    ---o---o---o---o---o---o---o---o---o---o---o "master"
+./.git/hooks/pre-rebase.sample:	git rev-list ^master ^topic next
+./.git/hooks/pre-rebase.sample:	git rev-list ^master        next
+./.git/hooks/pre-rebase.sample:	git rev-list master..topic
+./.git/hooks/applypatch-msg.sample:# applypatch from an e-mail message.
+./.git/hooks/applypatch-msg.sample:# The hook should exit with non-zero status after issuing an
+./.git/hooks/applypatch-msg.sample:# To enable this hook, rename this file to "applypatch-msg".
+./.git/hooks/applypatch-msg.sample:. git-sh-setup
+./.git/hooks/applypatch-msg.sample:commitmsg="$(git rev-parse --git-path hooks/commit-msg)"
+./.git/hooks/applypatch-msg.sample:test -x "$commitmsg" && exec "$commitmsg" ${1+"$@"}
+./.git/hooks/prepare-commit-msg.sample:# message file.  If the hook fails with a non-zero status,
+./.git/hooks/prepare-commit-msg.sample:# To enable this hook, rename this file to "prepare-commit-msg".
+./.git/hooks/prepare-commit-msg.sample:# The second includes the output of "git diff --name-status -r"
+./.git/hooks/prepare-commit-msg.sample:# commented because it doesn't cope with --amend or with squashed
+./.git/hooks/prepare-commit-msg.sample:# The third example adds a Signed-off-by line to the message, that can
+./.git/hooks/prepare-commit-msg.sample:    /usr/bin/perl -i.bak -ne 's/^/# /, s/^# #/#/ if /^Conflicts/ .. /#/; print' "$1" ;;
+./.git/hooks/prepare-commit-msg.sample:#   /usr/bin/perl -i.bak -pe '
+./.git/hooks/prepare-commit-msg.sample:#      print "\n" . `git diff --cached --name-status -r`
+./.git/hooks/prepare-commit-msg.sample:# SOB=$(git var GIT_AUTHOR_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
+./.git/hooks/prepare-commit-msg.sample:# grep -qs "^$SOB" "$1" || echo "$SOB" >> "$1"
+./.git/hooks/update.sample:# Called by "git receive-pack" with arguments: refname sha1-old sha1-new
+./.git/hooks/update.sample:# ------
+./.git/hooks/update.sample:# --- Command line
+./.git/hooks/update.sample:# --- Safety check
+./.git/hooks/update.sample:if [ -z "$GIT_DIR" ]; then
+./.git/hooks/update.sample:if [ -z "$refname" -o -z "$oldrev" -o -z "$newrev" ]; then
+./.git/hooks/update.sample:# --- Config
+./.git/hooks/update.sample:allowunannotated=$(git config --bool hooks.allowunannotated)
+./.git/hooks/update.sample:allowdeletebranch=$(git config --bool hooks.allowdeletebranch)
+./.git/hooks/update.sample:denycreatebranch=$(git config --bool hooks.denycreatebranch)
+./.git/hooks/update.sample:allowdeletetag=$(git config --bool hooks.allowdeletetag)
+./.git/hooks/update.sample:allowmodifytag=$(git config --bool hooks.allowmodifytag)
+./.git/hooks/update.sample:projectdesc=$(sed -e '1q' "$GIT_DIR/description")
+./.git/hooks/update.sample:# --- Check types
+./.git/hooks/update.sample:	newrev_type=$(git cat-file -t $newrev)
+./.git/hooks/update.sample:		# un-annotated tag
+./.git/hooks/update.sample:			echo "*** The un-annotated tag, $short_refname, is not allowed in this repository" >&2
+./.git/hooks/update.sample:			echo "*** Use 'git tag [ -a | -s ]' for tags you want to propagate." >&2
+./.git/hooks/update.sample:		if [ "$allowmodifytag" != "true" ] && git rev-parse $refname > /dev/null 2>&1
+./.git/hooks/update.sample:		if [ "$oldrev" = "$zero" -a "$denycreatebranch" = "true" ]; then
+./.git/hooks/update.sample:# --- Finished
+./.git/hooks/pre-push.sample:# pushed.  If this script exits with a non-zero status nothing will be pushed.
+./.git/hooks/pre-push.sample:# $1 -- Name of the remote to which the push is being done
+./.git/hooks/pre-push.sample:# $2 -- URL to which the push is being done
+./.git/hooks/pre-push.sample:		commit=`git rev-list -n 1 --grep '^WIP' "$range"`
+./.git/hooks/pre-push.sample:		if [ -n "$commit" ]
+./.git/hooks/commit-msg.sample:# that has the commit message.  The hook should exit with non-zero
+./.git/hooks/commit-msg.sample:# To enable this hook, rename this file to "commit-msg".
+./.git/hooks/commit-msg.sample:# Uncomment the below to add a Signed-off-by line to the message.
+./.git/hooks/commit-msg.sample:# Doing this in a hook is a bad idea in general, but the prepare-commit-msg
+./.git/hooks/commit-msg.sample:# SOB=$(git var GIT_AUTHOR_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
+./.git/hooks/commit-msg.sample:# grep -qs "^$SOB" "$1" || echo "$SOB" >> "$1"
+./.git/hooks/commit-msg.sample:# This example catches duplicate Signed-off-by lines.
+./.git/hooks/commit-msg.sample:test "" = "$(grep '^Signed-off-by: ' "$1" |
+./.git/hooks/commit-msg.sample:	 sort | uniq -c | sed -e '/^[ 	]*1[ 	]/d')" || {
+./.git/hooks/commit-msg.sample:	echo >&2 Duplicate Signed-off-by lines.
+./.git/hooks/pre-commit.sample:# exit with non-zero status after issuing an appropriate message if
+./.git/hooks/pre-commit.sample:# To enable this hook, rename this file to "pre-commit".
+./.git/hooks/pre-commit.sample:if git rev-parse --verify HEAD >/dev/null 2>&1
+./.git/hooks/pre-commit.sample:# If you want to allow non-ASCII filenames set this variable to true.
+./.git/hooks/pre-commit.sample:allownonascii=$(git config --bool hooks.allownonascii)
+./.git/hooks/pre-commit.sample:# Cross platform projects tend to avoid non-ASCII filenames; prevent
+./.git/hooks/pre-commit.sample:	test $(git diff --cached --name-only --diff-filter=A -z $against |
+./.git/hooks/pre-commit.sample:	  LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0
+./.git/hooks/pre-commit.sample:Error: Attempt to add a non-ASCII file name.
+./.git/hooks/pre-commit.sample:exec git diff-index --check --cached $against --
+./.git/hooks/post-update.sample:# To enable this hook, rename this file to "post-update".
+./.git/hooks/post-update.sample:exec git update-server-info
+./.git/hooks/pre-applypatch.sample:# by applypatch from an e-mail message.
+./.git/hooks/pre-applypatch.sample:# The hook should exit with non-zero status after issuing an
+./.git/hooks/pre-applypatch.sample:# To enable this hook, rename this file to "pre-applypatch".
+./.git/hooks/pre-applypatch.sample:. git-sh-setup
+./.git/hooks/pre-applypatch.sample:precommit="$(git rev-parse --git-path hooks/pre-commit)"
+./.git/hooks/pre-applypatch.sample:test -x "$precommit" && exec "$precommit" ${1+"$@"}
+Binary file ./.git/objects/c1/094c4e7b405b58144e9772a0acf50965f6cb87 matches
+Binary file ./.git/objects/74/80c7291a8e75a1e3ac1ccf1d2d614a3ac570c5 matches
+Binary file ./.git/objects/15/2552c6c790002197b1bbac7a3dda15ffaa97cf matches
+Binary file ./.git/objects/15/6f8d0b3eb160834b1279b0f0075433af977e93 matches
+Binary file ./.git/objects/15/c2b48cc0c552a1a5b93c7f8523b2ebbbfeb082 matches
+Binary file ./.git/objects/db/4380c19e6ba79590e4a554ecf0e3b211196286 matches
+Binary file ./.git/objects/b6/22cf9dbaf02d98df496dff2993dca2f1c0a084 matches
+Binary file ./.git/objects/dc/2675cf69cc96f0a61d5eee3b6ca7f2748ae532 matches
+Binary file ./.git/objects/d8/6fceef80b1029c2765a0f37cad61c13e29a899 matches
+Binary file ./.git/objects/0a/74efdb2fded3b3f95414a6a4cca75284a58e8a matches
+Binary file ./.git/objects/6d/e5bc92c88fc7156c0a7f196474b87243615a2f matches
+Binary file ./.git/objects/55/df126fd1ff30a8105435794282a59662c3d7c2 matches
+Binary file ./.git/objects/66/b3f30a54f2d9eb92e17e84668414ed0fbec8d6 matches
+Binary file ./.git/objects/1c/d564504a77eaeb904aa26a30cacff0683539fc matches
+Binary file ./.git/objects/a8/5f2d8b466e888b40c882b5de91a99991f902dc matches
+Binary file ./.git/objects/dd/ae29a99915cff8a9cf6db95950e1851f81e379 matches
+Binary file ./.git/objects/dd/6e2c66e31bcb1cc5db30e67c9027b688591468 matches
+Binary file ./.git/objects/61/05c5eba2c49b2481bd63085b8a2d0a425a4fd8 matches
+Binary file ./.git/objects/79/fdd969c0df7fab88832ee6f5f37bafa961a873 matches
+Binary file ./.git/objects/6c/2b5fe9d67fda2c5fabf2c9e1bf7e751c5941df matches
+Binary file ./.git/objects/53/4dbe0bf8c100940a3711039832cfb7065ce187 matches
+Binary file ./.git/objects/21/1871ed713d654c9d487d91a5b514268c1402f0 matches
+Binary file ./.git/objects/5b/b492f7491b5d0440c9616bb5dd775e8d06c1bc matches
+Binary file ./.git/objects/7e/d9283c24f542ff4b22282e35bfd5253733ab51 matches
+Binary file ./.git/objects/16/a2eddabcafcb847112b2788befd1e36fa48c48 matches
+Binary file ./.git/objects/3c/815e3c80ef2537a6acd3d3fc226fcf81cf7abc matches
+Binary file ./.git/objects/5c/4f8e9a3051bd4636a1db6abc8510870b4c9bdb matches
+Binary file ./.git/objects/a7/f25eb4d66db39a863e1a2f1ebd8098d3a6d1a2 matches
+Binary file ./.git/objects/a7/8e988de1e1717ffa835577f50fd9144b834b7c matches
+Binary file ./.git/objects/0d/d139032c06cc3f0924c3ec57aa477f94655202 matches
+Binary file ./.git/objects/80/f30d81ededdd9f6bcbddd39bae2755e927fc0f matches
+Binary file ./.git/objects/5e/de99cf9f26e086c6f802df9a609d6922ff62e4 matches
+Binary file ./.git/objects/09/29fe9f1768609376d4648fa3c6f50d10fa61ae matches
+Binary file ./.git/objects/5d/2b813259936cd44aba2f336d5f29259dcdecf7 matches
+Binary file ./.git/objects/c0/e5ee8ad6746d1cd240f1d502e573d4c23c3947 matches
+Binary file ./.git/objects/1d/8b60c17634a213dad9eee6ed74822293e28c6a matches
+Binary file ./.git/objects/ab/d3a096f98180818adb576dc789add527f5ef5f matches
+Binary file ./.git/objects/a1/af5efc91f2951d28c26c8a6eceaf84c5906fd9 matches
+Binary file ./.git/objects/1f/35d2f29bf23575ed02d87ab0a776a6e55d9410 matches
+Binary file ./.git/objects/eb/6d37bf07bda13f126c7e407e8c76eb6b82a581 matches
+Binary file ./.git/objects/c7/114c39c7d953a8541abfc01f125a369647c49f matches
+Binary file ./.git/objects/c8/4dc089861d7204fd3f6a0a1d320d1951ab915f matches
+Binary file ./.git/objects/44/7d78bf375af1201a9e6643d9b647d911f237af matches
+Binary file ./.git/objects/f5/67c5ce11b108c92dbfcad39d9f42596ca133e8 matches
+Binary file ./.git/objects/59/c3668c665ef80cbcc2091d034771d820d1b475 matches
+Binary file ./.git/objects/cb/886a2f6872ef8d6f560d7fc2a1827e61e4ef02 matches
+Binary file ./.git/objects/6b/1a7c618ade6f5845dfce6b00efc3004232e76e matches
+Binary file ./.git/objects/34/ece9e3d623085df2238d935d1926f4223164f1 matches
+Binary file ./.git/objects/ae/5a0991a1c6a0b35a2a8c3ffedb5a84e3f4a429 matches
+Binary file ./.git/objects/35/25654ccafd354e94a675f6d7e4fd9420bceaf9 matches
+Binary file ./.git/objects/68/e7bc613039a04dadcf8b9bdd14e147313cacb1 matches
+Binary file ./.git/objects/c9/06bb3800002ecadb618130e4835d582dcdab58 matches
+Binary file ./.git/objects/23/46cd6cdddb5806c740060dc6c5f3f076f28354 matches
+Binary file ./.git/objects/ec/b8e0c2451f7870d018082ec3a7dcf900b5a90a matches
+Binary file ./.git/objects/4e/2044f85f83f4f6c454be4ca6cafeed2a34d70c matches
+Binary file ./.git/objects/4e/931995352370dceffe4b5fb758cebd2c73815a matches
+Binary file ./.git/objects/ee/b05b3752e29ae32c606be98db94abcc4abecb5 matches
+./Makefile:CFLAGS = -g -Wall -Iinclude
+./Makefile:LDFLAGS = -L.
+./Makefile:LIBS = -lipstack -lpthread
+./Makefile:	$(CC) -c $(CFLAGS) $< -o $@
+./Makefile:	$(LD) $(LDFLAGS) $(OBJS) -o $(TARGET) $(LIBS) 
+./Makefile:	rm -f *.o $(TARGET)
+./tcp_topo.py:    h1.cmd('ifconfig h1-eth0 10.0.0.1/24')
+./tcp_topo.py:    h2.cmd('ifconfig h2-eth0 10.0.0.2/24')
