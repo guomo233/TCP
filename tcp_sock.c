@@ -281,16 +281,14 @@ int tcp_sock_connect(struct tcp_sock *tsk, struct sock_addr *skaddr)
 	tcp_bind_hash (tsk) ;
 
 	tcp_set_state (tsk, TCP_SYN_SENT) ;
-	tcp_hash (tsk) ;
+	int err = tcp_hash (tsk) ;
 	tcp_send_control_packet (tsk, TCP_SYN) ;
 
 	sleep_on (tsk->wait_connect) ;
 
-	return 0 ;
+	return err ;
 
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
-
-	//return -1;
 }
 
 // set backlog (the maximum number of pending connection requst), switch the
@@ -303,13 +301,11 @@ int tcp_sock_listen(struct tcp_sock *tsk, int backlog)
 	return tcp_hash (tsk) ;
 	
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
-
-	//return -1;
 }
 
 // check whether the accept queue is full
 inline int tcp_sock_accept_queue_full(struct tcp_sock *tsk)
-{
+{`
 	if (tsk->accept_backlog >= tsk->backlog) {
 		log(ERROR, "tcp accept queue (%d) is full.", tsk->accept_backlog);
 		return 1;
@@ -342,11 +338,12 @@ inline struct tcp_sock *tcp_sock_accept_dequeue(struct tcp_sock *tsk)
 // otherwise, sleep on the wait_accept for the incoming connection requests
 struct tcp_sock *tcp_sock_accept(struct tcp_sock *tsk)
 {
-	//if (tcp_sock_accept_queue_full (tsk))
-	//	tcp_sock_accept_dequeue (tsk) ;
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	if (list_empty (&(tsk->accept_queue)))
+		sleep_on (tsk-wait_accept) ;
 
-	return NULL;
+	return tcp_sock_accept_dequeue (tsk) ;
+	
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
 
 // similar to read function, try to read from socket tsk
