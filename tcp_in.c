@@ -45,5 +45,40 @@ static inline int is_tcp_seq_valid(struct tcp_sock *tsk, struct tcp_cb *cb)
 // Process the incoming packet according to TCP state machine. 
 void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 {
+	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
+	{
+		struct tcp_sock *csk = alloc_tcp_sock () ;
+		csk->sk_sip = cb->daddr ;
+		csk->sport = cb->dport ;
+		csk->sk_dip = cb->saddr ;
+		csk->dport = cb->sport ;
+		csk->rcv_nxt = cb->seq_end ;
+		csk->parent = tsk ;
+
+		list_add_tail (&(csk->list), &(tsk->listen_queue)) ;
+		
+		tcp_set_state (csk, TCP_SYN_RECV) ;
+		tcp_hash (csk) ;
+
+		tcp_send_control_packet (csk, TCP_SYN | TCP_ACK) ;
+	}
+	else if (tsk->state == TCP_SYN_SENT && 
+		cb->flags == (TCP_SYN | TCP_ACK))
+	{
+		tsk->rcv_nxt = cb->seq_end ;
+		tcp_set_state (tsk, TCP_ESTABLISHED) ;
+		tcp_send_control_packet (tsk, TCP_ACK) ;
+		
+		wake_up (tsk->wait_connect) ;
+	}
+	else if (tsk->state == TCP_SYN_RECV && cb->flags == TCP_ACK)
+	{
+		list_delete_entry (&tsk->list) ;
+		tcp_sock_accept_enqueue (tsk) ;
+		
+		tcp_set_state (tsk, TCP_ESTABLISHED) ;
+		
+		wake_up (tsk->parent->wait_accept) ;
+	}
 	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
