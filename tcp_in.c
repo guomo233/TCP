@@ -42,12 +42,15 @@ static inline int is_tcp_seq_valid(struct tcp_sock *tsk, struct tcp_cb *cb)
 	}
 }
 
+struct tcp_cb *fin_cb ;
+
 // Process the incoming packet according to TCP state machine. 
 void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 {
 	if (!is_tcp_seq_valid (tsk, cb))
 		return ;
 
+	// Connect
 	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
 	{
 		struct tcp_sock *csk = alloc_tcp_sock () ;
@@ -85,5 +88,40 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		wake_up (tsk->parent->wait_accept) ;
 	}
 
+	// Close
+	else if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
+	{
+		tsk->rcv_nxt = cb->seq_end ;
+
+		tcp_set_state (tsk, TCP_CLOSE_WAIT) ;
+		tcp_send_control_packet (tsk, TCP_ACK) ;
+	}
+	else if (tsk->state == TCP_FIN_WAIT_1 && cb->flags == TCP_ACK)
+		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
+	else if (tsk->state == TCP_FIN_WAIT_2 && cb->flags == TCP_FIN)
+	{
+		tsk->rcv_nxt = cb->seq_end ;
+		
+		tcp_set_state (tsk, TCP_TIME_WAIT) ;
+		tcp_send_control_packet (tsk, TCP_ACK) ;
+		
+		tcp_set_timewait_timer (tsk) ;
+	}
+	else if (tsk->state == TCP_LAST_ACK && cb->flags == TCP_ACK)
+	{
+		tcp_set_state (tsk, TCP_CLOSED) ;
+
+		tcp_unhash (tsk) ;
+	}
+
+
+	else if (tsk->state == TCP_CLOSED)
+		tcp_send_reset (cb) ;
+	else if (cb->flags == TCP_RST)
+	{
+		tcp_unhash (tsk) ;
+		tcp_set_state (tsk, TCP_CLOSED) ;
+	}
+	
 	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }

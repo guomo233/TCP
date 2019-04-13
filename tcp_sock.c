@@ -366,5 +366,16 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 // to the peer, switching TCP_STATE to closed
 void tcp_sock_close(struct tcp_sock *tsk)
 {
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	if (tsk->state == TCP_ESTABLISHED)
+	{
+		tcp_send_control_packet (tsk, TCP_FIN) ;
+		tcp_set_state (tsk, TCP_FIN_WAIT_1) ;
+	}
+	else if (tsk->state == TCP_CLOSE_WAIT)
+	{
+		tcp_send_control_packet (tsk, TCP_FIN) ;
+		tcp_set_state (tsk, TCP_LAST_ACK) ;
+	}
+	
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
