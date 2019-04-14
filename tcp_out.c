@@ -6,6 +6,8 @@
 #include "log.h"
 #include "list.h"
 
+#include "retrans.h" // fix - retrans
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -56,6 +58,17 @@ void tcp_send_packet(struct tcp_sock *tsk, char *packet, int len)
 	tsk->snd_nxt += tcp_data_len;
 	tsk->snd_wnd -= tcp_data_len;
 
+	// fix - retrans
+	struct snt_pkt *pkt_bak = (struct snt_pkt *) malloc (sizeof(struct snd_pkt)) ;
+	pkt_bak->len = len ;
+	pkt_bak->retrans_times = 0 ;
+	pkt_bak->packet = (char *) malloc (sizeof(char) * len) ;
+	memcpy (pkt_bak->packet, packet, len) ;
+
+	list_add_tail (&(pkt_bak->list), &(tsk->send_buf)) ;
+
+	tcp_set_retrans_timer (tsk) ;
+
 	ip_send_packet(packet, len);
 }
 
@@ -85,7 +98,16 @@ void tcp_send_control_packet(struct tcp_sock *tsk, u8 flags)
 	tcp->checksum = tcp_checksum(ip, tcp);
 
 	if (flags & (TCP_SYN|TCP_FIN))
+	{
 		tsk->snd_nxt += 1;
+
+		// fix - retrans
+		struct snt_pkt *pkt_bak = (struct snt_pkt *) malloc (sizeof(struct snd_pkt)) ;
+		pkt_bak->packet = (char *) malloc (sizeof(char) * len) ;
+		memcpy (pkt_bak->packet, packet, len) ;
+		list_add_tail (&(pkt_bak->list), &(tsk->send_buf)) ;
+		tcp_set_retrans_timer (tsk) ;
+	}
 
 	ip_send_packet(packet, pkt_size);
 }

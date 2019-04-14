@@ -5,7 +5,7 @@
 #include "ip.h"
 #include "rtable.h"
 #include "log.h"
-
+#include <pthread.h> // fix
 // TCP socks should be hashed into table for later lookup: Those which
 // occupy a port (either by *bind* or *connect*) should be hashed into
 // bind_table, those which listen for incoming connection request should be
@@ -355,9 +355,12 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 	if (ring_buffer_empty (tsk->rcv_buf))
 		sleep_on (tsk->wait_recv) ;
 
+	pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
 	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
-	tsk->rcv_wnd -= read_size ;
-
+	pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
+	
+	//tsk->rcv_wnd += read_size ;
+	
 	return read_size ;
 
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
@@ -372,7 +375,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 	int max_data_size = ETH_FRAME_LEN - hdr_size ;
 	
 	int i = 0 ;
-	while (i >= size)
+	while (i < size)
 	{
 		if (tsk->snd_wnd <= 0)
 			sleep_on (tsk->wait_send) ;

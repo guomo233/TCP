@@ -62,7 +62,10 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	// Check Seq
 	else if (!is_tcp_seq_valid (tsk, cb))
 		return ;
-	
+
+	// Update snd_wnd
+	tcp_update_window_safe (tsk, cb) ;
+
 	// Connect
 	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
 	{	
@@ -102,7 +105,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 
 	// Close
-	else if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
+	if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
 
@@ -131,17 +134,47 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 
 	// Receive data
-	else if ((tsk->state == TCP_ESTABLISHED || 
+	if ((tsk->state == TCP_ESTABLISHED || 
 		tsk->state == TCP_FIN_WAIT_1 ||
 		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
-		tsk->rcv_nxt = cb->seq_end ;
-		tcp_send_control_packet (tsk, TCP_ACK) ;
+		if (cb->seq == tsk->rcv_nxt)
+		{
+			int rcv_ok = 0 ;
+			pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
+			int rcv_buf_free = ring_buffer_free (tsk->rcv_buf) ;
+			if (cb->pl_len <= rcv_buf_free)
+			{
+				write_ring_buffer (tsk->rcv_buf, cb->payload, cb->pl_len) ;
+				rcv_buf_free -= cb->pl_len ;
+				rcv_ok = 1 ;
+			}
+			pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
+			
+			if (rcv_ok)
+			{
+				tsk->rcv_nxt = cb->seq_end ;
+				tsk->rcv_wnd = rcv_buf_free ; // stream control
+				tcp_send_control_packet (tsk, TCP_ACK) ;
+				
+				wake_up (tsk->wait_recv) ;
+			}
+		}
+		else if (cb->seq < tsk->rcv_nxt)
+		{
+			
+		}
 
-		write_ring_buffer (tsk->rcv_buf, cb->payload, cb->pl_len) ;
-
-		wake_up (tsk->wait_recv) ;
+		// else: drop
+	}
+	
+	// retrans
+	if ((tsk->state == TCP_ESTABLISHED ||
+		tsk->state == TCP_CLOSE_WAIT) &&
+		cb->flags == TCP_ACK)
+	{
+		//tsk->snd_wnd += 
 	}
 	
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);

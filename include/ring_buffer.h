@@ -4,11 +4,14 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h> // fix
+#include "log.h"
 
 struct ring_buffer {
 	int size;
 	int head;		// read from head
 	int tail;		// write from tail
+	pthread_mutex_t rw_lock ; // fix
 	char buf[0];
 };
 
@@ -19,6 +22,7 @@ static inline struct ring_buffer *alloc_ring_buffer(int size)
 	struct ring_buffer *rbuf = malloc(tot_size);
 	memset(rbuf, 0, tot_size);
 	rbuf->size = size + 1;
+	pthread_mutex_init (&(rbuf->rw_lock), NULL) ; // fix
 
 	return rbuf;
 }
