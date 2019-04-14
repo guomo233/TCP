@@ -102,7 +102,7 @@ struct tcp_sock *tcp_sock_lookup_established(u32 saddr, u32 daddr, u16 sport, u1
 		if (tsk->sk_sip == saddr && 
 			tsk->sk_sport == sport && 
 			tsk->sk_dip == daddr && 
-			tsk->dport == dport)
+			tsk->sk_dport == dport)
 			return tsk ;
 	}
 	
@@ -121,7 +121,7 @@ struct tcp_sock *tcp_sock_lookup_listen(u32 saddr, u16 sport)
 	
 	struct tcp_sock *tsk ;
 	list_for_each_entry(tsk, list, hash_list) {
-		if (tsk->sport == sport)
+		if (tsk->sk_sport == sport)
 			return tsk ;
 	}
 
@@ -275,8 +275,8 @@ int tcp_sock_connect(struct tcp_sock *tsk, struct sock_addr *skaddr)
 					iface_info_t, list) ;
 	tsk->sk_sip = iface->ip ;
 	tsk->sk_dip = skaddr->ip ;
-	tsk->sport = tcp_get_port () ;
-	tsk->dport = skaddr->port ;
+	tsk->sk_sport = ntohs(tcp_get_port ()) ;
+	tsk->sk_dport = ntohs(skaddr->port) ;
 
 	tcp_bind_hash (tsk) ;
 
@@ -305,7 +305,7 @@ int tcp_sock_listen(struct tcp_sock *tsk, int backlog)
 
 // check whether the accept queue is full
 inline int tcp_sock_accept_queue_full(struct tcp_sock *tsk)
-{`
+{
 	if (tsk->accept_backlog >= tsk->backlog) {
 		log(ERROR, "tcp accept queue (%d) is full.", tsk->accept_backlog);
 		return 1;
@@ -339,7 +339,7 @@ inline struct tcp_sock *tcp_sock_accept_dequeue(struct tcp_sock *tsk)
 struct tcp_sock *tcp_sock_accept(struct tcp_sock *tsk)
 {
 	if (list_empty (&(tsk->accept_queue)))
-		sleep_on (tsk-wait_accept) ;
+		sleep_on (tsk->wait_accept) ;
 
 	return tcp_sock_accept_dequeue (tsk) ;
 	
@@ -349,11 +349,14 @@ struct tcp_sock *tcp_sock_accept(struct tcp_sock *tsk)
 // similar to read function, try to read from socket tsk
 int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 {
+	if (tsk->state == TCP_CLOSE_WAIT)
+		return 0 ;
+
 	if (ring_buffer_empty (tsk->rcv_buf))
 		sleep_on (tsk->wait_recv) ;
 
 	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
-	tsk->rcv_wnd -= read_size
+	tsk->rcv_wnd -= read_size ;
 
 	return read_size ;
 
@@ -366,21 +369,22 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 {
 	int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
-	int max_data_size = ETHER_FRAME_LEN - hdr_size ;
+	int max_data_size = ETH_FRAME_LEN - hdr_size ;
 	
-	while (size > 0)
+	int i = 0 ;
+	while (i >= size)
 	{
 		if (tsk->snd_wnd <= 0)
 			sleep_on (tsk->wait_send) ;
 
-		int data_size = min (max_data_size, min (size, tsk->snd_wnd)) ;
+		int data_size = min (max_data_size, min (size-i, tsk->snd_wnd)) ;
 		int pkt_size = data_size + hdr_size ;
 		
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
 		tcp_send_packet (tsk, packet, pkt_size) ;
 
-		size -= data_size ;
+		i += data_size ;
 	}
 
 	return 0 ;

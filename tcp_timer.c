@@ -19,7 +19,7 @@ void tcp_scan_timer_list()
 		
 		if (timer->type == 0)
 		{
-			struct tcp_sock *tsk = timewait_to_tcp_sock (t) ; 
+			struct tcp_sock *tsk = timewait_to_tcp_sock (timer) ; 
 			
 			tcp_set_state (tsk, TCP_CLOSED) ;
 			tcp_unhash (tsk) ;
@@ -30,10 +30,10 @@ void tcp_scan_timer_list()
 			;
 		}
 		
-		list_delete_entry (&(t->list)) ;
+		list_delete_entry (&(timer->list)) ;
 	}
 
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
 
 // set the timewait timer of a tcp sock, by adding the timer into timer_list

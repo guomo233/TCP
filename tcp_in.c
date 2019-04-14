@@ -65,12 +65,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	
 	// Connect
 	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
-	{
+	{	
 		struct tcp_sock *csk = alloc_tcp_sock () ;
 		csk->sk_sip = cb->daddr ;
-		csk->sport = cb->dport ;
+		csk->sk_sport = cb->dport ;
 		csk->sk_dip = cb->saddr ;
-		csk->dport = cb->sport ;
+		csk->sk_dport = cb->sport ;
 		csk->rcv_nxt = cb->seq_end ;
 		csk->parent = tsk ;
 
@@ -108,6 +108,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 
 		tcp_set_state (tsk, TCP_CLOSE_WAIT) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
+
+		wake_up (tsk->wait_recv) ;
 	}
 	else if (tsk->state == TCP_FIN_WAIT_1 && cb->flags == TCP_ACK)
 		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
@@ -131,7 +133,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	// Receive data
 	else if ((tsk->state == TCP_ESTABLISHED || 
 		tsk->state == TCP_FIN_WAIT_1 ||
-		tsk->state == TCP_FIN_WAIT_2 ||) &&
+		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
