@@ -59,8 +59,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tcp_unhash (tsk) ; // auto free memory
 	}
 	
+	// Check Seq
+	else if (!is_tcp_seq_valid (tsk, cb))
+		return ;
+	
 	// Connect
-	else if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
+	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
 	{
 		struct tcp_sock *csk = alloc_tcp_sock () ;
 		csk->sk_sip = cb->daddr ;
@@ -124,8 +128,16 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tcp_unhash (tsk) ;  // auto free memory
 	}
 
-	if (!is_tcp_seq_valid (tsk, cb))
-		return ;
+	// Receive data
+	else if ((tsk->state == TCP_ESTABLISHED || 
+		tsk->state == TCP_FIN_WAIT_1 ||
+		tsk->state == TCP_FIN_WAIT_2 ||) &&
+		cb->pl_len > 0)
+	{
+		write_ring_buffer (tsk->rcv_buf, cb->payload, cb->pl_len) ;
+
+		wake_up (tsk->wait_recv) ;
+	}
 	
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }

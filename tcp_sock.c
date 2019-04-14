@@ -349,9 +349,17 @@ struct tcp_sock *tcp_sock_accept(struct tcp_sock *tsk)
 // similar to read function, try to read from socket tsk
 int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 {
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	if (ring_buffer_empty (tsk->rcv_buf))
+		sleep_on (tsk->wait_recv) ;
 
-	return 0;
+	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
+	tsk->rcv_wnd -= read_size
+
+	return read_size ;
+
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+
+	//return 0;
 }
 
 // similar to write function, try to write to socket tsk
