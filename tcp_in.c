@@ -134,6 +134,9 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_FIN_WAIT_2 ||) &&
 		cb->pl_len > 0)
 	{
+		tsk->rcv_nxt = cb->seq_end ;
+		tcp_send_control_packet (tsk, TCP_ACK) ;
+
 		write_ring_buffer (tsk->rcv_buf, cb->payload, cb->pl_len) ;
 
 		wake_up (tsk->wait_recv) ;
