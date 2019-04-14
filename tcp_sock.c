@@ -357,9 +357,29 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 // similar to write function, try to write to socket tsk
 int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 {
-	fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+	int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
+	int max_data_size = ETHER_FRAME_LEN - hdr_size ;
+	
+	while (size > 0)
+	{
+		if (tsk->snd_wnd <= 0)
+			sleep_on (tsk->wait_send) ;
 
-	return -1;
+		int data_size = min (max_data_size, min (size, tsk->snd_wnd)) ;
+		int pkt_size = data_size + hdr_size ;
+		
+		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
+		memcpy (packet + hdr_size, buf + i, data_size) ;
+		tcp_send_packet (tsk, packet, pkt_size) ;
+
+		size -= data_size ;
+	}
+
+	return 0 ;
+
+	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+
+	//return -1;
 }
 
 // close the tcp sock, by releasing the resources, sending FIN/RST packet
