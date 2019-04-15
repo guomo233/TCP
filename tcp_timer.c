@@ -29,7 +29,7 @@ void tcp_scan_timer_list()
 		
 			list_delete_entry (&(timer->list)) ;
 		}
-		else if (!list_empty (&(tsk->send_buf))) // type == 1
+		else // type == 1
 		{
 			struct tcp_sock *tsk = retranstimer_to_tcp_sock (timer) ;
 			
@@ -45,7 +45,7 @@ void tcp_scan_timer_list()
 			else
 			{
 				timer->timeout = TCP_RETRANS_INTERVAL_INITIAL ;
-				for (int i=0; i<bkt_bak->retrans_times; i++)
+				for (int i=0; i<pkt_bak->retrans_times; i++)
 					timer->timeout <<= 1 ;
 			}
 		}

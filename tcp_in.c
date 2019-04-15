@@ -33,6 +33,7 @@ static inline void tcp_update_window_safe(struct tcp_sock *tsk, struct tcp_cb *c
 static inline int is_tcp_seq_valid(struct tcp_sock *tsk, struct tcp_cb *cb)
 {
 	u32 rcv_end = tsk->rcv_nxt + max(tsk->rcv_wnd, 1);
+	log(DEBUG, "(%d,%d), (%d,%d)", tsk->rcv_nxt, rcv_end, cb->seq, cb->seq_end) ;
 	if (less_than_32b(cb->seq, rcv_end) && less_or_equal_32b(tsk->rcv_nxt, cb->seq_end)) {
 		return 1;
 	}
@@ -60,12 +61,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 	
 	// Check Seq
-	else if (!is_tcp_seq_valid (tsk, cb))
+	if (!is_tcp_seq_valid (tsk, cb))
 		return ;
 
 	// Update snd_wnd
 	tcp_update_window_safe (tsk, cb) ;
-
+	
 	// Connect
 	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
 	{	
@@ -139,32 +140,24 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
-		if (cb->seq == tsk->rcv_nxt)
-		{
-			int rcv_ok = 0 ;
+		//if (cb->seq == tsk->rcv_nxt)
+		//{
+			int rcv_len = min (tsk->rcv_wnd, cb->pl_len) ; // may receive just a part
+
 			pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
-			int rcv_buf_free = ring_buffer_free (tsk->rcv_buf) ;
-			if (cb->pl_len <= rcv_buf_free)
-			{
-				write_ring_buffer (tsk->rcv_buf, cb->payload, cb->pl_len) ;
-				rcv_buf_free -= cb->pl_len ;
-				rcv_ok = 1 ;
-			}
+			write_ring_buffer (tsk->rcv_buf, cb->payload, rcv_len) ;
 			pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
 			
-			if (rcv_ok)
-			{
-				tsk->rcv_nxt = cb->seq_end ;
-				tsk->rcv_wnd = rcv_buf_free ; // stream control
-				tcp_send_control_packet (tsk, TCP_ACK) ;
+			tsk->rcv_nxt = cb->seq + rcv_len ;
+			tsk->rcv_wnd -= rcv_len ;
+			tcp_send_control_packet (tsk, TCP_ACK) ;
 				
-				wake_up (tsk->wait_recv) ;
-			}
-		}
-		else if (cb->seq < tsk->rcv_nxt)
-		{
+			wake_up (tsk->wait_recv) ;
+		//}
+		//else if (cb->seq < tsk->rcv_nxt)
+		//{
 			
-		}
+		//}
 
 		// else: drop
 	}
@@ -174,6 +167,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_CLOSE_WAIT) &&
 		cb->flags == TCP_ACK)
 	{
+		
 		//tsk->snd_wnd += 
 	}
 	

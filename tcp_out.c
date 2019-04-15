@@ -64,9 +64,7 @@ void tcp_send_packet(struct tcp_sock *tsk, char *packet, int len)
 	pkt_bak->retrans_times = 0 ;
 	pkt_bak->packet = (char *) malloc (sizeof(char) * len) ;
 	memcpy (pkt_bak->packet, packet, len) ;
-
 	list_add_tail (&(pkt_bak->list), &(tsk->send_buf)) ;
-
 	tcp_set_retrans_timer (tsk) ;
 
 	ip_send_packet(packet, len);

@@ -359,7 +359,7 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
 	pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
 	
-	//tsk->rcv_wnd += read_size ;
+	tsk->rcv_wnd += read_size ;
 	
 	return read_size ;
 
