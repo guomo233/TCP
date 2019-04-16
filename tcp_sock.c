@@ -51,10 +51,14 @@ struct tcp_sock *alloc_tcp_sock()
 
 	tsk->state = TCP_CLOSED;
 	tsk->rcv_wnd = TCP_DEFAULT_WINDOW;
+	tsk->iss = tcp_new_iss () ;  // fix
+	tsk->snd_nxt = tsk->iss ;        // fix
 
 	init_list_head(&tsk->list);
 	init_list_head(&tsk->listen_queue);
 	init_list_head(&tsk->accept_queue);
+	init_list_head (&(tsk->send_buf)) ;     // fix - retrans
+	init_list_head (&(tsk->rcv_ofo_buf)) ;  // fix - retrans
 
 	tsk->rcv_buf = alloc_ring_buffer(tsk->rcv_wnd);
 
@@ -62,7 +66,7 @@ struct tcp_sock *alloc_tcp_sock()
 	tsk->wait_accept = alloc_wait_struct();
 	tsk->wait_recv = alloc_wait_struct();
 	tsk->wait_send = alloc_wait_struct();
-
+	
 	return tsk;
 }
 
@@ -277,7 +281,7 @@ int tcp_sock_connect(struct tcp_sock *tsk, struct sock_addr *skaddr)
 	tsk->sk_dip = skaddr->ip ;
 	tsk->sk_sport = ntohs(tcp_get_port ()) ;
 	tsk->sk_dport = ntohs(skaddr->port) ;
-
+	
 	tcp_bind_hash (tsk) ;
 
 	tcp_set_state (tsk, TCP_SYN_SENT) ;
@@ -349,17 +353,15 @@ struct tcp_sock *tcp_sock_accept(struct tcp_sock *tsk)
 // similar to read function, try to read from socket tsk
 int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 {
-	if (tsk->state == TCP_CLOSE_WAIT)
-		return 0 ;
-
-	if (ring_buffer_empty (tsk->rcv_buf))
+	while (tsk->state != TCP_CLOSE_WAIT && ring_buffer_empty (tsk->rcv_buf))
 		sleep_on (tsk->wait_recv) ;
-
+	
 	pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
 	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
-	pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
-	
+	log(DEBUG, "begin read rcv_wnd:%d", tsk->rcv_wnd) ;
 	tsk->rcv_wnd += read_size ;
+	log(DEBUG, "after read rcv_wnd:%d", tsk->rcv_wnd) ;
+	pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
 	
 	return read_size ;
 
@@ -373,18 +375,24 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 {
 	int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
 	int max_data_size = ETH_FRAME_LEN - hdr_size ;
-	
+
 	int i = 0 ;
 	while (i < size)
 	{
-		if (tsk->snd_wnd <= 0)
+		if (min (tsk->snd_wnd, tsk->adv_wnd) <= 0)
 			sleep_on (tsk->wait_send) ;
-
-		int data_size = min (max_data_size, min (size-i, tsk->snd_wnd)) ;
+		
+		int data_size = min (max_data_size, size-i) ;
+		data_size = min (data_size, tsk->snd_wnd) ;
+		data_size = min (data_size, tsk->adv_wnd) ; // stream control
 		int pkt_size = data_size + hdr_size ;
 		
+		if (data_size <= 0)
+			continue ;
+
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
+		
 		tcp_send_packet (tsk, packet, pkt_size) ;
 
 		i += data_size ;

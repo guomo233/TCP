@@ -41,12 +41,19 @@ void tcp_scan_timer_list()
 			pkt_bak->retrans_times++ ;
 
 			if (pkt_bak->retrans_times >= 3)
+			{
+				struct iphdr *ip = packet_to_ip_hdr(packet);
+				struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
+				int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
+				log(DEBUG, "3 times seq:%d, pl_len:%d", ntohl(tcp->seq), pl_len) ;
+
 				tcp_sock_close (tsk) ;
+			}
 			else
 			{
 				timer->timeout = TCP_RETRANS_INTERVAL_INITIAL ;
 				for (int i=0; i<pkt_bak->retrans_times; i++)
-					timer->timeout <<= 1 ;
+					timer->timeout *= 2 ;
 			}
 		}
 	}

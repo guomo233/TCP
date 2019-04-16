@@ -5,6 +5,8 @@
 #include "log.h"
 #include "ring_buffer.h"
 
+#include "retrans.h" // fix
+
 #include <stdlib.h>
 // update the snd_wnd of tcp_sock
 //
@@ -33,12 +35,12 @@ static inline void tcp_update_window_safe(struct tcp_sock *tsk, struct tcp_cb *c
 static inline int is_tcp_seq_valid(struct tcp_sock *tsk, struct tcp_cb *cb)
 {
 	u32 rcv_end = tsk->rcv_nxt + max(tsk->rcv_wnd, 1);
-	log(DEBUG, "(%d,%d), (%d,%d)", tsk->rcv_nxt, rcv_end, cb->seq, cb->seq_end) ;
 	if (less_than_32b(cb->seq, rcv_end) && less_or_equal_32b(tsk->rcv_nxt, cb->seq_end)) {
 		return 1;
 	}
 	else {
-		log(ERROR, "received packet with invalid seq, drop it.");
+		//log(ERROR, "received packet with invalid seq, drop it.");
+		//log(ERROR, "need (%d,%d), drop (%d,%d)", tsk->rcv_nxt, tsk->rcv_nxt + tsk->rcv_wnd, cb->seq, cb->seq_end);
 		return 0;
 	}
 }
@@ -59,17 +61,10 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			tcp_bind_unhash (tsk) ;
 		tcp_unhash (tsk) ; // auto free memory
 	}
-	
-	// Check Seq
-	if (!is_tcp_seq_valid (tsk, cb))
-		return ;
-
-	// Update snd_wnd
-	tcp_update_window_safe (tsk, cb) ;
-	
+		
 	// Connect
 	if (tsk->state == TCP_LISTEN && cb->flags == TCP_SYN)
-	{	
+	{		
 		struct tcp_sock *csk = alloc_tcp_sock () ;
 		csk->sk_sip = cb->daddr ;
 		csk->sk_sport = cb->dport ;
@@ -82,31 +77,42 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		
 		tcp_set_state (csk, TCP_SYN_RECV) ;
 		tcp_hash (csk) ;
-
+			
 		tcp_send_control_packet (csk, TCP_SYN | TCP_ACK) ;
 	}
 	else if (tsk->state == TCP_SYN_SENT && 
-		cb->flags == (TCP_SYN | TCP_ACK))
+		cb->flags == (TCP_SYN | TCP_ACK) &&
+		cb->ack == tsk->snd_nxt)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
+		
+		remove_ack_pkt (tsk, cb->ack) ;
+		
+		tcp_update_window_safe (tsk, cb) ; // Update snd_wnd
+		tsk->adv_wnd = cb->rwnd ;
 
 		tcp_set_state (tsk, TCP_ESTABLISHED) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 		
 		wake_up (tsk->wait_connect) ;
 	}
-	else if (tsk->state == TCP_SYN_RECV && cb->flags == TCP_ACK)
+	else if (tsk->state == TCP_SYN_RECV && 
+		cb->flags == TCP_ACK &&
+		cb->ack == tsk->snd_nxt)
 	{
-		list_delete_entry (&tsk->list) ;
+		remove_ack_pkt (tsk, cb->ack) ;
+		
 		tcp_sock_accept_enqueue (tsk) ;
 		
 		tcp_set_state (tsk, TCP_ESTABLISHED) ;
 		
 		wake_up (tsk->parent->wait_accept) ;
 	}
-
+	
 	// Close
-	if (tsk->state == TCP_ESTABLISHED && cb->flags == TCP_FIN)
+	if (tsk->state == TCP_ESTABLISHED && 
+		cb->flags == TCP_FIN &&
+		cb->seq == tsk->rcv_nxt)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
 
@@ -115,10 +121,17 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 
 		wake_up (tsk->wait_recv) ;
 	}
-	else if (tsk->state == TCP_FIN_WAIT_1 && cb->flags == TCP_ACK)
+	else if (tsk->state == TCP_FIN_WAIT_1 && 
+		cb->flags == TCP_ACK &&
+		cb->ack == tsk->snd_nxt)
+	{
+		remove_ack_pkt (tsk, cb->ack) ;
 		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
+	}
 	else if ((tsk->state == TCP_FIN_WAIT_2 || 
-		tsk->state == TCP_TIME_WAIT) && cb->flags == TCP_FIN)
+		tsk->state == TCP_TIME_WAIT) && 
+		cb->flags == TCP_FIN &&
+		cb->seq == tsk->rcv_nxt)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
 		
@@ -127,48 +140,99 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		
 		tcp_set_timewait_timer (tsk) ;
 	}
-	else if (tsk->state == TCP_LAST_ACK && cb->flags == TCP_ACK)
+	else if (tsk->state == TCP_LAST_ACK && 
+		cb->flags == TCP_ACK &&
+		cb->ack == tsk->snd_nxt)
 	{
+		remove_ack_pkt (tsk, cb->ack) ;
+		
 		tcp_set_state (tsk, TCP_CLOSED) ;
 
 		tcp_unhash (tsk) ;  // auto free memory
 	}
-
+	
+	// drop
+	if (!is_tcp_seq_valid (tsk, cb))
+		return ;
+	
 	// Receive data
 	if ((tsk->state == TCP_ESTABLISHED || 
 		tsk->state == TCP_FIN_WAIT_1 ||
 		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
-		//if (cb->seq == tsk->rcv_nxt)
-		//{
-			int rcv_len = min (tsk->rcv_wnd, cb->pl_len) ; // may receive just a part
+		if (cb->seq == tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd)
+		{
+			int seq = cb->seq ;
+			int seq_end = cb->seq_end ;
+			int pl_len = cb->pl_len ;
+			char *payload = cb->payload ;
+			int wait_to_ack = 1 ;
+			while (wait_to_ack)
+			{
+				pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
+				write_ring_buffer (tsk->rcv_buf, payload, pl_len) ;
+				tsk->rcv_nxt = seq_end ;
+				tsk->rcv_wnd -= pl_len ;
+				pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
 
-			pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
-			write_ring_buffer (tsk->rcv_buf, cb->payload, rcv_len) ;
-			pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
-			
-			tsk->rcv_nxt = cb->seq + rcv_len ;
-			tsk->rcv_wnd -= rcv_len ;
-			tcp_send_control_packet (tsk, TCP_ACK) ;
+				if (list_empty (&(tsk->rcv_ofo_buf)))
+					break ;
 				
-			wake_up (tsk->wait_recv) ;
-		//}
-		//else if (cb->seq < tsk->rcv_nxt)
-		//{
-			
-		//}
+				wait_to_ack = 0 ;
+				struct rcvd_pkt *pkt_bak, *temp ;
+				list_for_each_entry_safe (pkt_bak, temp, &(tsk->rcv_ofo_buf), list)
+				{
+					if (pkt_bak->seq == tsk->rcv_nxt && 
+						pkt_bak->seq + pkt_bak->pl_len <= tsk->rcv_nxt + tsk->rcv_wnd)
+					{
+						pl_len = pkt_bak->pl_len ;
+						seq = pkt_bak->seq ;
+						seq_end = seq + pl_len ;
+						payload = pkt_bak->payload ;
+						
+						list_delete_entry (&(pkt_bak->list)) ;
+						wait_to_ack = 1 ;
 
-		// else: drop
+						break ;
+					}
+				}
+			}
+			
+			log(DEBUG, "seq:(%d, %d), ack:%d, rcv_wnd:%d", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
+			tcp_send_control_packet (tsk, TCP_ACK) ;
+			wake_up (tsk->wait_recv) ;
+			log(DEBUG, "wake up, buf_usd:%d", ring_buffer_used(tsk->rcv_buf)) ;
+		}
+		else if (cb->seq > tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd) // store
+		{
+			struct rcvd_pkt *pkt_bak = (struct rcvd_pkt *) malloc (sizeof(struct rcvd_pkt)) ;
+			pkt_bak->pl_len = cb->pl_len ;
+			pkt_bak->seq = cb->seq ;
+			pkt_bak->payload = (char *) malloc (sizeof(char) * cb->pl_len) ;
+			memcpy (pkt_bak->payload, cb->payload, cb->pl_len) ;
+			
+			list_add_tail (&(pkt_bak->list), &(tsk->rcv_ofo_buf)) ;
+			//log(DEBUG, "store seq:(%d,%d), need:%d, rcv_wnd:%d)", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
+		}
+		else if (cb->seq < tsk->rcv_nxt)
+		{
+			log(DEBUG, "retrans seq:(%d,%d), ack:%d", cb->seq, cb->seq_end, tsk->rcv_nxt) ;
+			tcp_send_control_packet (tsk, TCP_ACK) ;
+		}
 	}
 	
-	// retrans
+	// Receive ACK about sent data
 	if ((tsk->state == TCP_ESTABLISHED ||
 		tsk->state == TCP_CLOSE_WAIT) &&
 		cb->flags == TCP_ACK)
 	{
-		
-		//tsk->snd_wnd += 
+		remove_ack_pkt (tsk, cb->ack) ;
+
+		int old_adv_wnd = tsk->adv_wnd ;
+		tsk->adv_wnd = cb->rwnd ;
+		if (old_adv_wnd <= 0)
+			wake_up (tsk->wait_send) ;
 	}
 	
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
