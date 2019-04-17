@@ -67,7 +67,8 @@ void tcp_set_timewait_timer(struct tcp_sock *tsk)
 	tsk->timewait.type = 0 ;
 	tsk->timewait.timeout = TCP_TIMEWAIT_TIMEOUT ;
 	
-	list_add_tail (&(tsk->timewait.list), &timer_list) ;
+	if (list_empty(&(tsk->timewait.list)))
+		list_add_tail (&(tsk->timewait.list), &timer_list) ;
 
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }

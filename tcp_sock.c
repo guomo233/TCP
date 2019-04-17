@@ -52,13 +52,15 @@ struct tcp_sock *alloc_tcp_sock()
 	tsk->state = TCP_CLOSED;
 	tsk->rcv_wnd = TCP_DEFAULT_WINDOW;
 	tsk->iss = tcp_new_iss () ;  // fix
-	tsk->snd_nxt = tsk->iss ;        // fix
+	tsk->snd_nxt = tsk->iss ;    // fix
 
 	init_list_head(&tsk->list);
 	init_list_head(&tsk->listen_queue);
 	init_list_head(&tsk->accept_queue);
 	init_list_head (&(tsk->send_buf)) ;     // fix - retrans
 	init_list_head (&(tsk->rcv_ofo_buf)) ;  // fix - retrans
+	init_list_head (&(tsk->timewait.list)) ;  // fix
+	init_list_head (&(tsk->retrans_timer.list)) ;  // fix
 
 	tsk->rcv_buf = alloc_ring_buffer(tsk->rcv_wnd);
 
