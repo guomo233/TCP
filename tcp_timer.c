@@ -108,7 +108,8 @@ void tcp_set_retrans_timer(struct tcp_sock *tsk)
 // unset the retrans timer of a tcp sock, by removing the timer from timer_list
 void tcp_unset_retrans_timer(struct tcp_sock *tsk)
 {
-	list_delete_entry (&(tsk->retrans_timer.list)) ;
+	if (!list_empty (&(tsk->retrans_timer.list)))
+		list_delete_entry (&(tsk->retrans_timer.list)) ;
 
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
@@ -126,7 +127,8 @@ void tcp_set_zwp_timer (struct tcp_sock *tsk)
 // fix - zero window probe
 void tcp_unset_zwp_timer (struct tcp_sock *tsk)
 {
-	list_delete_entry (&(tsk->zwp_timer.list)) ;
+	if (!list_empty (&(tsk->zwp_timer.list)))
+		list_delete_entry (&(tsk->zwp_timer.list)) ;
 }
 
 // scan the timer_list periodically by calling tcp_scan_timer_list
