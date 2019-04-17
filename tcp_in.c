@@ -202,10 +202,13 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 				}
 			}
 			
-			log(DEBUG, "seq:(%d, %d), ack:%d, rcv_wnd:%d", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
+			//log(DEBUG, "seq:(%d, %d), ack:%d, rcv_wnd:%d", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
+			if (tsk->rcv_wnd == 0)
+				log(DEBUG, "rcv_wnd=0") ;
 			tcp_send_control_packet (tsk, TCP_ACK) ;
-			wake_up (tsk->wait_recv) ;
-			log(DEBUG, "wake up, buf_usd:%d", ring_buffer_used(tsk->rcv_buf)) ;
+			if (cb->pl_len > 0)  // prevent zero window probe
+				wake_up (tsk->wait_recv) ;
+			//log(DEBUG, "wake up, buf_usd:%d", ring_buffer_used(tsk->rcv_buf)) ;
 		}
 		else if (cb->seq > tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd) // store
 		{
@@ -220,7 +223,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		}
 		else if (cb->seq < tsk->rcv_nxt)
 		{
-			log(DEBUG, "retrans seq:(%d,%d), ack:%d", cb->seq, cb->seq_end, tsk->rcv_nxt) ;
+			//log(DEBUG, "retrans seq:(%d,%d), ack:%d", cb->seq, cb->seq_end, tsk->rcv_nxt) ;
 			tcp_send_control_packet (tsk, TCP_ACK) ;
 		}
 	}
@@ -236,8 +239,13 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 
 		int old_adv_wnd = tsk->adv_wnd ;
 		tsk->adv_wnd = cb->rwnd ;
-		if (old_adv_wnd <= 0)
+		if (old_adv_wnd <= 0 && tsk->adv_wnd > 0)
+		{
+			tcp_unset_zwp_timer (tsk) ;
+			log(DEBUG, "unset zwp timer") ;
+
 			wake_up (tsk->wait_send) ;
+		}
 	}
 	
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);

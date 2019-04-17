@@ -64,6 +64,10 @@ struct tcp_sock {
 	// tcp timer used during TCP_TIME_WAIT state
 	struct tcp_timer timewait;
 
+	// fix - zero window probe
+	struct tcp_timer zwp_timer ;
+	int zwp_times ;
+
 	// used for timeout retransmission
 	struct tcp_timer retrans_timer;
 

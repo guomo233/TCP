@@ -60,7 +60,8 @@ struct tcp_sock *alloc_tcp_sock()
 	init_list_head (&(tsk->send_buf)) ;     // fix - retrans
 	init_list_head (&(tsk->rcv_ofo_buf)) ;  // fix - retrans
 	init_list_head (&(tsk->timewait.list)) ;  // fix
-	init_list_head (&(tsk->retrans_timer.list)) ;  // fix
+	init_list_head (&(tsk->retrans_timer.list)) ;  // fix - retrans
+	init_list_head (&(tsk->zwp_timer.list)) ;  // fix - zero window probe
 
 	tsk->rcv_buf = alloc_ring_buffer(tsk->rcv_wnd);
 
@@ -382,7 +383,15 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 	while (i < size)
 	{
 		if (min (tsk->snd_wnd, tsk->adv_wnd) <= 0)
+		{
+			if (tsk->adv_wnd == 0)
+			{
+				log(DEBUG, "set zwp timer") ;
+				tcp_set_zwp_timer (tsk) ;
+			}
+
 			sleep_on (tsk->wait_send) ;
+		}
 		
 		int data_size = min (max_data_size, size-i) ;
 		data_size = min (data_size, tsk->snd_wnd) ;
@@ -394,7 +403,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
-		log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;
+		//log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;
 		
 		tcp_send_packet (tsk, packet, pkt_size) ;
 
@@ -423,5 +432,5 @@ void tcp_sock_close(struct tcp_sock *tsk)
 		tcp_set_state (tsk, TCP_LAST_ACK) ;
 	}
 	
-	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+
 }

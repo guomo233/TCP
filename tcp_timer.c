@@ -29,7 +29,7 @@ void tcp_scan_timer_list()
 		
 			list_delete_entry (&(timer->list)) ;
 		}
-		else // type == 1
+		else if (timer->type == 1) // retrans
 		{
 			struct tcp_sock *tsk = retranstimer_to_tcp_sock (timer) ;
 			
@@ -53,6 +53,27 @@ void tcp_scan_timer_list()
 			{
 				timer->timeout = TCP_RETRANS_INTERVAL_INITIAL ;
 				for (int i=0; i<pkt_bak->retrans_times; i++)
+					timer->timeout *= 2 ;
+			}
+		}
+		else // type = 2, zero window probe
+		{
+			struct tcp_sock *tsk = zwptimer_to_tcp_sock (timer) ;
+			int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
+			char *packet = (char *) malloc (sizeof(char) * hdr_size) ;
+			
+			tcp_send_packet (tsk, packet, hdr_size) ;
+			tsk->zwp_times++ ;
+
+			if (tsk->zwp_times >= 3)
+			{
+				log(DEBUG, "3 times zero window probe") ;
+				tcp_sock_close (tsk) ;
+			}
+			else
+			{
+				timer->timeout = TCP_ZERO_WINDOW_PROBE_INITIAL ;
+				for (int i=0; i<tsk->zwp_times; i++)
 					timer->timeout *= 2 ;
 			}
 		}
@@ -90,6 +111,22 @@ void tcp_unset_retrans_timer(struct tcp_sock *tsk)
 	list_delete_entry (&(tsk->retrans_timer.list)) ;
 
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
+}
+
+// fix - zero window probe
+void tcp_set_zwp_timer (struct tcp_sock *tsk)
+{
+	tsk->zwp_times = 0 ;
+	tsk->zwp_timer.type = 2 ;
+	tsk->zwp_timer.timeout = TCP_ZERO_WINDOW_PROBE_INITIAL ;
+
+	list_add_tail (&(tsk->zwp_timer.list), &timer_list) ;
+}
+
+// fix - zero window probe
+void tcp_unset_zwp_timer (struct tcp_sock *tsk)
+{
+	list_delete_entry (&(tsk->zwp_timer.list)) ;
 }
 
 // scan the timer_list periodically by calling tcp_scan_timer_list

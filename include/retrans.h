@@ -43,7 +43,7 @@ static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)
 			(ack_type == TCP_CONTROL_ACK))
 		{
 			tsk->snd_wnd += pl_len ;
-			log(DEBUG, "ack:(%d, %d)", seq, seq_end);
+			//log(DEBUG, "ack:(%d, %d)", seq, seq_end);
 			if (tsk->snd_wnd - pl_len <= 0)
 				wake_up (tsk->wait_send) ;
 			
