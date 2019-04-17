@@ -138,6 +138,9 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tcp_set_state (tsk, TCP_TIME_WAIT) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 		
+		tsk->rcv_nxt = cb->seq ; // for TIME_WAIT to receive FIN
+		
+		log(DEBUG, "receive FIN") ;
 		tcp_set_timewait_timer (tsk) ;
 	}
 	else if (tsk->state == TCP_LAST_ACK && 
