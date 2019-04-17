@@ -86,7 +86,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
 		
-		remove_ack_pkt (tsk, cb->ack) ;
+		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_update_window_safe (tsk, cb) ; // Update snd_wnd
 		tsk->adv_wnd = cb->rwnd ;
@@ -100,7 +100,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
-		remove_ack_pkt (tsk, cb->ack) ;
+		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_sock_accept_enqueue (tsk) ;
 		
@@ -125,7 +125,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
-		remove_ack_pkt (tsk, cb->ack) ;
+		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
 	}
 	else if ((tsk->state == TCP_FIN_WAIT_2 || 
@@ -144,7 +144,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
-		remove_ack_pkt (tsk, cb->ack) ;
+		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_set_state (tsk, TCP_CLOSED) ;
 
@@ -224,10 +224,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	
 	// Receive ACK about sent data
 	if ((tsk->state == TCP_ESTABLISHED ||
+		tsk->state == TCP_FIN_WAIT_1 ||
+		tsk->state == TCP_FIN_WAIT_2 ||
 		tsk->state == TCP_CLOSE_WAIT) &&
 		cb->flags == TCP_ACK)
 	{
-		remove_ack_pkt (tsk, cb->ack) ;
+		remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
 
 		int old_adv_wnd = tsk->adv_wnd ;
 		tsk->adv_wnd = cb->rwnd ;

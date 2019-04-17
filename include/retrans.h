@@ -9,6 +9,9 @@
 #include "ip.h"
 #include "log.h"
 
+#define TCP_CONTROL_ACK 0
+#define TCP_DATA_ACK 1
+
 struct snt_pkt
 {
 	struct list_head list ;
@@ -25,7 +28,7 @@ struct rcvd_pkt
 	int pl_len ;	
 } ;
 
-static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack)
+static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)
 {
 	tcp_unset_retrans_timer (tsk);
 	struct snt_pkt *pkt, *temp ;
@@ -34,11 +37,13 @@ static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack)
 		struct tcphdr *tcp = packet_to_tcp_hdr (pkt->packet) ;
 		struct iphdr *ip = packet_to_ip_hdr (pkt->packet) ;
 		int pl_len = ntohs(ip->tot_len) - IP_BASE_HDR_SIZE - TCP_BASE_HDR_SIZE ;
-		int seq_end = ntohl(tcp->seq) + pl_len ;
-		if (ack >= seq_end)
+		int seq = ntohl(tcp->seq) ;
+		int seq_end = seq + pl_len ;
+		if ((ack_type == TCP_DATA_ACK && seq_end > seq && ack >= seq_end) ||
+			(ack_type == TCP_CONTROL_ACK))
 		{
 			tsk->snd_wnd += pl_len ;
-			//log(DEBUG, "ack:%d", ntohl(tcp->seq));
+			log(DEBUG, "ack:(%d, %d)", seq, seq_end);
 			if (tsk->snd_wnd - pl_len <= 0)
 				wake_up (tsk->wait_send) ;
 			

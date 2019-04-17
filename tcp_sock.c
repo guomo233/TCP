@@ -358,9 +358,9 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 	
 	pthread_mutex_lock (&(tsk->rcv_buf->rw_lock)) ;
 	int read_size = read_ring_buffer (tsk->rcv_buf, buf, size) ;
-	log(DEBUG, "begin read rcv_wnd:%d", tsk->rcv_wnd) ;
+	//log(DEBUG, "begin read rcv_wnd:%d", tsk->rcv_wnd) ;
 	tsk->rcv_wnd += read_size ;
-	log(DEBUG, "after read rcv_wnd:%d", tsk->rcv_wnd) ;
+	//log(DEBUG, "after read rcv_wnd:%d", tsk->rcv_wnd) ;
 	pthread_mutex_unlock (&(tsk->rcv_buf->rw_lock)) ;
 	
 	return read_size ;
@@ -392,6 +392,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
+		log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;
 		
 		tcp_send_packet (tsk, packet, pkt_size) ;
 
