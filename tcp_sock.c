@@ -6,6 +6,7 @@
 #include "rtable.h"
 #include "log.h"
 #include <pthread.h> // fix
+#include "congestion_control.h" // fix
 // TCP socks should be hashed into table for later lookup: Those which
 // occupy a port (either by *bind* or *connect*) should be hashed into
 // bind_table, those which listen for incoming connection request should be
@@ -69,6 +70,10 @@ struct tcp_sock *alloc_tcp_sock()
 	tsk->wait_accept = alloc_wait_struct();
 	tsk->wait_recv = alloc_wait_struct();
 	tsk->wait_send = alloc_wait_struct();
+
+	// fix - fast recovery / congestion control
+	tsk->cg_state = TCP_CG_OPEN ;
+	tsk->dupack_times = 0 ;
 	
 	return tsk;
 }

@@ -6,7 +6,7 @@
 #include "ring_buffer.h"
 
 #include "retrans.h" // fix
-
+#include "congestion_control.h" // fix
 #include <stdlib.h>
 // update the snd_wnd of tcp_sock
 //
@@ -201,14 +201,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 					}
 				}
 			}
-			
-			//log(DEBUG, "seq:(%d, %d), ack:%d, rcv_wnd:%d", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
-			if (tsk->rcv_wnd == 0)
-				log(DEBUG, "rcv_wnd=0") ;
-			tcp_send_control_packet (tsk, TCP_ACK) ;
 			if (cb->pl_len > 0)  // prevent zero window probe
 				wake_up (tsk->wait_recv) ;
-			//log(DEBUG, "wake up, buf_usd:%d", ring_buffer_used(tsk->rcv_buf)) ;
 		}
 		else if (cb->seq > tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd) // store
 		{
@@ -219,13 +213,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			memcpy (pkt_bak->payload, cb->payload, cb->pl_len) ;
 			
 			list_add_tail (&(pkt_bak->list), &(tsk->rcv_ofo_buf)) ;
-			//log(DEBUG, "store seq:(%d,%d), need:%d, rcv_wnd:%d)", cb->seq, cb->seq_end, tsk->rcv_nxt, tsk->rcv_wnd) ;
 		}
-		else if (cb->seq < tsk->rcv_nxt)
-		{
-			//log(DEBUG, "retrans seq:(%d,%d), ack:%d", cb->seq, cb->seq_end, tsk->rcv_nxt) ;
-			tcp_send_control_packet (tsk, TCP_ACK) ;
-		}
+
+		if (tsk->rcv_wnd <= 0)
+			log(DEBUG, "rcv_wnd = 0") ;
+		log(DEBUG, "send ack:%d", tsk->rcv_nxt) ;
+		tcp_send_control_packet (tsk, TCP_ACK) ;
 	}
 	
 	// Receive ACK about sent data
@@ -235,7 +228,47 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_CLOSE_WAIT) &&
 		cb->flags == TCP_ACK)
 	{
-		remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
+		if (!list_empty(&(tsk->send_buf)))
+		{
+			struct snt_pkt *pkt_bak = list_entry (tsk->send_buf.next, struct snt_pkt, list) ;
+			struct iphdr *ip = packet_to_ip_hdr(pkt_bak->packet);
+			struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
+			if (cb->ack <= ntohl(tcp->seq))
+				goto rcv_dupack ;
+			else
+			{
+				remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
+				if (tsk->cg_state == TCP_CG_RECOVERY)
+				{
+					if (cb->ack < tsk->recovery_point) // patrial ack
+					{
+						log(DEBUG, "RECOVERY: fast retrans") ;
+						retrans_pkt (tsk) ;
+					}
+					else // full ack
+					{
+						log(DEBUG, "change to OPEN") ;
+						tsk->cg_state = TCP_CG_OPEN ;
+						tsk->dupack_times = 0 ;
+					}
+				}
+			}
+		}
+		else
+		{
+rcv_dupack:
+			log(DEBUG, "dupack:%d", cb->ack) ;
+			tsk->dupack_times++ ;
+			if (tsk->cg_state == TCP_CG_DISORDER && tsk->dupack_times >= 3)
+			{
+				tsk->cg_state = TCP_CG_RECOVERY ;
+				tsk->recovery_point = tsk->snd_nxt ;
+				retrans_pkt (tsk) ;
+				log(DEBUG, "DISORDER: fast retrans ") ;
+			}
+			else if (tsk->cg_state == TCP_CG_OPEN)
+				tsk->cg_state = TCP_CG_DISORDER ;
+		}
 
 		int old_adv_wnd = tsk->adv_wnd ;
 		tsk->adv_wnd = cb->rwnd ;

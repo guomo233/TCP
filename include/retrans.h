@@ -37,13 +37,14 @@ static inline void retrans_pkt (struct tcp_sock *tsk)
 	ip_send_packet (packet, pkt_bak->len) ;
 	pkt_bak->retrans_times++ ;
 
+	struct iphdr *ip = packet_to_ip_hdr(packet);
+	struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
+	int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
+	log(DEBUG, "retrans seq:(%d,%d)", ntohl(tcp->seq), ntohl(tcp->seq) + pl_len) ;
+	
 	if (pkt_bak->retrans_times >= 3)
 	{
-		struct iphdr *ip = packet_to_ip_hdr(packet);
-		struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
-		int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
-		log(DEBUG, "3 times seq:%d, pl_len:%d", ntohl(tcp->seq), pl_len) ;
-
+		log(DEBUG, "retrans 3 times seq(%d, %d)", ntohl(tcp->seq), ntohl(tcp->seq) + pl_len) ;
 		tcp_sock_close (tsk) ;
 	}
 	else

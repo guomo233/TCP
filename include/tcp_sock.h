@@ -87,6 +87,12 @@ struct tcp_sock {
 	// tcp state, see enum tcp_state in tcp.h
 	int state;
 
+	// fix - congestion control state
+	int cg_state ;
+
+	// fix - record dup ack times (for fast recovery)
+	u32 dupack_times ;
+
 	// initial sending sequence number
 	u32 iss;
 
