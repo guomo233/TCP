@@ -54,6 +54,7 @@ struct tcp_sock *alloc_tcp_sock()
 	tsk->rcv_wnd = TCP_DEFAULT_WINDOW;
 	tsk->iss = tcp_new_iss () ;  // fix
 	tsk->snd_nxt = tsk->iss ;    // fix
+	tsk->snd_una = tsk->snd_nxt ; // fix
 
 	init_list_head(&tsk->list);
 	init_list_head(&tsk->listen_queue);
@@ -384,9 +385,10 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 	int i = 0 ;
 	while (i < size)
 	{
-		if (min (tsk->snd_wnd, tsk->adv_wnd) <= 0)
+		tsk->snd_wnd = tsk->adv_wnd ;
+		if (tsk->snd_nxt - tsk->snd_una >= tsk->snd_wnd)
 		{
-			if (tsk->adv_wnd == 0)
+			if (tsk->adv_wnd <= 0)
 			{
 				log(DEBUG, "set zwp timer") ;
 				tcp_set_zwp_timer (tsk) ;
@@ -397,13 +399,13 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 		
 		int data_size = min (TCP_MSS, size-i) ;
 		data_size = min (data_size, tsk->snd_wnd) ;
-		data_size = min (data_size, tsk->adv_wnd) ; // stream control
 		int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
 		int pkt_size = data_size + hdr_size ;
 		
 		if (data_size <= 0)
 			continue ;
 
+		log(DEBUG, "snd_una:%d, seq(%d, %d), snd_wnd:%d", tsk->snd_una, tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd) ;
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
 		//log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;

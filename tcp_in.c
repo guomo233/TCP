@@ -85,7 +85,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->ack == tsk->snd_nxt)
 	{
 		tsk->rcv_nxt = cb->seq_end ;
-		
+		tsk->snd_una++ ;
+
 		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_update_window_safe (tsk, cb) ; // Update snd_wnd
@@ -102,6 +103,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
+		tsk->snd_una++ ;
+
 		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_sock_accept_enqueue (tsk) ;
@@ -127,6 +130,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
+		tsk->snd_una++ ;
+	
 		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		tcp_set_state (tsk, TCP_FIN_WAIT_2) ;
 	}
@@ -149,6 +154,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
+		tsk->snd_una++ ;
+
 		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
 		tcp_set_state (tsk, TCP_CLOSED) ;
@@ -280,7 +287,7 @@ rcv_dupack:
 			else if (tsk->cg_state == TCP_CG_OPEN)
 				tsk->cg_state = TCP_CG_DISORDER ;
 		}
-
+	
 		int old_adv_wnd = tsk->adv_wnd ;
 		tsk->adv_wnd = cb->rwnd ;
 		if (old_adv_wnd <= 0 && tsk->adv_wnd > 0)

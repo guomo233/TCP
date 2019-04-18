@@ -69,9 +69,16 @@ static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)
 		if ((ack_type == TCP_DATA_ACK && seq_end > seq && ack >= seq_end) ||
 			(ack_type == TCP_CONTROL_ACK))
 		{
-			tsk->snd_wnd += pl_len ;
 			//log(DEBUG, "ack:(%d, %d)", seq, seq_end);
-			if (tsk->snd_wnd - pl_len <= 0)
+			//tsk->snd_wnd += pl_len ;
+			/*if (tsk->snd_wnd - pl_len <= 0)
+				wake_up (tsk->wait_send) ;*/
+
+			int old_snd_una = tsk->snd_una ;
+			tsk->snd_una += pl_len ;
+			log(DEBUG, "received ack:%d, snd_una:%d", ack, tsk->snd_una) ;
+			if (tsk->snd_nxt - old_snd_una >= tsk->snd_wnd &&
+				tsk->snd_nxt - tsk->snd_una < tsk->snd_wnd)
 				wake_up (tsk->wait_send) ;
 			
 			free (pkt->packet) ;
