@@ -32,29 +32,7 @@ void tcp_scan_timer_list()
 		else if (timer->type == 1) // retrans
 		{
 			struct tcp_sock *tsk = retranstimer_to_tcp_sock (timer) ;
-			
-			struct snt_pkt *pkt_bak = list_entry (tsk->send_buf.next, struct snt_pkt, list) ;
-			char *packet = (char *) malloc (sizeof(char) * pkt_bak->len) ;
-			memcpy (packet, pkt_bak->packet, pkt_bak->len) ;
-
-			ip_send_packet (packet, pkt_bak->len) ;
-			pkt_bak->retrans_times++ ;
-
-			if (pkt_bak->retrans_times >= 3)
-			{
-				struct iphdr *ip = packet_to_ip_hdr(packet);
-				struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
-				int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
-				log(DEBUG, "3 times seq:%d, pl_len:%d", ntohl(tcp->seq), pl_len) ;
-
-				tcp_sock_close (tsk) ;
-			}
-			else
-			{
-				timer->timeout = TCP_RETRANS_INTERVAL_INITIAL ;
-				for (int i=0; i<pkt_bak->retrans_times; i++)
-					timer->timeout *= 2 ;
-			}
+			retrans_pkt (tsk) ;
 		}
 		else // type = 2, zero window probe
 		{
