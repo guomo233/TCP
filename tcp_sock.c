@@ -390,7 +390,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 		{
 			if (tsk->adv_wnd <= 0)
 			{
-				log(DEBUG, "set zwp timer") ;
+				//log(DEBUG, "set zwp timer") ;
 				tcp_set_zwp_timer (tsk) ;
 			}
 
@@ -405,7 +405,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 		if (data_size <= 0)
 			continue ;
 
-		log(DEBUG, "snd_una:%d, seq(%d, %d), snd_wnd:%d", tsk->snd_una, tsk->snd_nxt, (tsk->snd_nxt + data_size), tsk->snd_wnd) ;
+		//log(DEBUG, "snd_una:%d, seq(%d, %d), snd_wnd:%d", tsk->snd_una, tsk->snd_nxt, (tsk->snd_nxt + data_size), tsk->snd_wnd) ;
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
 		//log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;
@@ -436,6 +436,4 @@ void tcp_sock_close(struct tcp_sock *tsk)
 		tcp_send_control_packet (tsk, TCP_FIN) ;
 		tcp_set_state (tsk, TCP_LAST_ACK) ;
 	}
-	
-
 }

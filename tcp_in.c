@@ -154,7 +154,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		
 		tsk->rcv_nxt = cb->seq ; // for TIME_WAIT to receive FIN
 		
-		log(DEBUG, "receive FIN") ;
+		//log(DEBUG, "receive FIN") ;
 		tcp_set_timewait_timer (tsk) ;
 	}
 	else if (tsk->state == TCP_LAST_ACK && 
@@ -231,9 +231,9 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			list_add_tail (&(pkt_bak->list), &(tsk->rcv_ofo_buf)) ;
 		}
 
-		if (tsk->rcv_wnd <= 0)
-			log(DEBUG, "rcv_wnd = 0") ;
-		log(DEBUG, "send ack:%d, rcv_wnd = %d", tsk->rcv_nxt, tsk->rcv_wnd) ;
+		//if (tsk->rcv_wnd <= 0)
+		//	log(DEBUG, "rcv_wnd = 0") ;
+		//log(DEBUG, "send ack:%d, rcv_wnd = %d", tsk->rcv_nxt, tsk->rcv_wnd) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 	}
 	
@@ -252,12 +252,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 				cb->ack < tsk->recovery_point) // patrial ack
 
 			{
-				log(DEBUG, "RECOVERY: fast retrans") ;
+				//log(DEBUG, "RECOVERY: fast retrans") ;
 				retrans_pkt (tsk, 0) ;
 			}
 			else if (tsk->cg_state != TCP_CG_OPEN) // full ack || cg_state == TCP_CG_DISORDER
 			{
-				log(DEBUG, "change to OPEN") ;
+				//log(DEBUG, "change to OPEN") ;
 				tsk->cg_state = TCP_CG_OPEN ;
 				tsk->dupack_times = 0 ;
 			}
@@ -273,14 +273,14 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		}
 		else if (cb->ack == tsk->snd_una)  // receive dup ack
 		{
-			log(DEBUG, "dupack:%d", cb->ack) ;
+			//log(DEBUG, "dupack:%d", cb->ack) ;
 			
 			if (tsk->cg_state != TCP_CG_LOSS)
 				tsk->dupack_times++ ;
 			
 			if (tsk->dupack_times == 1)  // OPEN
 			{
-				log(DEBUG, "change to DISORDER") ;
+				//log(DEBUG, "change to DISORDER") ;
 				tsk->cg_state = TCP_CG_DISORDER ;
 			}
 			else if (tsk->dupack_times == 3)  // OPEN -> RECOVERY
@@ -288,7 +288,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 				tsk->cg_state = TCP_CG_RECOVERY ;
 				tsk->recovery_point = tsk->snd_nxt ;
 
-				log(DEBUG, "change to RECOVERY: fast retrans ") ;
+				//log(DEBUG, "change to RECOVERY: fast retrans ") ;
 				retrans_pkt (tsk, 0) ;
 				
 				tsk->ssthresh = tsk->cwnd / 2 ;
@@ -297,7 +297,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			else if (tsk->dupack_times > 3) // RECOVERY
 			{
 				tsk->cwnd += TCP_MSS ;
-				log(DEBUG, "RECOVERY: fast retrans") ;
+				//log(DEBUG, "RECOVERY: fast retrans") ;
 				retrans_pkt (tsk, 0) ;
 			}
 		}
@@ -307,7 +307,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		if (old_adv_wnd <= 0 && tsk->adv_wnd > 0)
 		{
 			tcp_unset_zwp_timer (tsk) ;
-			log(DEBUG, "unset zwp timer") ;
+			//log(DEBUG, "unset zwp timer") ;
 
 			wake_up (tsk->wait_send) ;
 		}
