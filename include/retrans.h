@@ -8,6 +8,7 @@
 #include "tcp_timer.h"
 #include "ip.h"
 #include "log.h"
+#include "congestion_control.h"
 
 #define TCP_CONTROL_ACK 0
 #define TCP_DATA_ACK 1
@@ -28,23 +29,18 @@ struct rcvd_pkt
 	int pl_len ;	
 } ;
 
-static inline void retrans_pkt (struct tcp_sock *tsk)
+static inline void retrans_pkt (struct tcp_sock *tsk, int inc)
 {
 	struct snt_pkt *pkt_bak = list_entry (tsk->send_buf.next, struct snt_pkt, list) ;
 	char *packet = (char *) malloc (sizeof(char) * pkt_bak->len) ;
 	memcpy (packet, pkt_bak->packet, pkt_bak->len) ;
 
 	ip_send_packet (packet, pkt_bak->len) ;
-	pkt_bak->retrans_times++ ;
+	pkt_bak->retrans_times += inc ;
 
-	struct iphdr *ip = packet_to_ip_hdr(packet);
-	struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
-	int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
-	log(DEBUG, "retrans seq:(%d,%d)", ntohl(tcp->seq), ntohl(tcp->seq) + pl_len) ;
-	
-	if (pkt_bak->retrans_times >= 3)
+	if (pkt_bak->retrans_times > 3)
 	{
-		log(DEBUG, "retrans 3 times seq(%d, %d)", ntohl(tcp->seq), ntohl(tcp->seq) + pl_len) ;
+		log(DEBUG, "retrans 3 times") ;
 		tcp_sock_close (tsk) ;
 	}
 	else
@@ -53,6 +49,11 @@ static inline void retrans_pkt (struct tcp_sock *tsk)
 		for (int i=0; i<pkt_bak->retrans_times; i++)
 			tsk->retrans_timer.timeout *= 2 ;
 	}
+
+	struct iphdr *ip = packet_to_ip_hdr(packet);
+	struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
+	int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
+	log(DEBUG, "retrans seq:(%d,%d), snd_wnd:%d", ntohl(tcp->seq), (ntohl(tcp->seq) + pl_len), tsk->snd_wnd) ;
 }
 
 static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)
@@ -76,18 +77,24 @@ static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)
 
 			int old_snd_una = tsk->snd_una ;
 			tsk->snd_una += pl_len ;
-			log(DEBUG, "received ack:%d, snd_una:%d", ack, tsk->snd_una) ;
 			if (tsk->snd_nxt - old_snd_una >= tsk->snd_wnd &&
 				tsk->snd_nxt - tsk->snd_una < tsk->snd_wnd)
 				wake_up (tsk->wait_send) ;
 			
-			free (pkt->packet) ;
 			list_delete_entry (&(pkt->list)) ;
+			free (pkt->packet) ;
+			free (pkt) ;
 		}
 	}
+	log(DEBUG, "received ack:%d, snd_una:%d", ack, tsk->snd_una) ;
 
 	if (!list_empty (&(tsk->send_buf)))
 		tcp_set_retrans_timer (tsk) ;
+	else if (tsk->cg_state == TCP_CG_LOSS)
+	{
+		log(DEBUG, "from LOSS change to OPEN") ;
+		tsk->cg_state = TCP_CG_OPEN ;
+	}
 }
 
 #endif

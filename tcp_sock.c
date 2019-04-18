@@ -385,7 +385,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 	int i = 0 ;
 	while (i < size)
 	{
-		tsk->snd_wnd = tsk->adv_wnd ;
+		tsk->snd_wnd = min (tsk->cwnd, tsk->adv_wnd) ;
 		if (tsk->snd_nxt - tsk->snd_una >= tsk->snd_wnd)
 		{
 			if (tsk->adv_wnd <= 0)
@@ -405,7 +405,7 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 		if (data_size <= 0)
 			continue ;
 
-		log(DEBUG, "snd_una:%d, seq(%d, %d), snd_wnd:%d", tsk->snd_una, tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd) ;
+		log(DEBUG, "snd_una:%d, seq(%d, %d), snd_wnd:%d", tsk->snd_una, tsk->snd_nxt, (tsk->snd_nxt + data_size), tsk->snd_wnd) ;
 		char *packet = (char *) malloc (sizeof(char) * pkt_size) ;
 		memcpy (packet + hdr_size, buf + i, data_size) ;
 		//log(DEBUG, "seq:(%d,%d), snd_wnd:%d, adv_wnd:%d", tsk->snd_nxt, tsk->snd_nxt + data_size, tsk->snd_wnd, tsk->adv_wnd) ;

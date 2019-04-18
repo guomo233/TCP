@@ -80,7 +80,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			
 		tcp_send_control_packet (csk, TCP_SYN | TCP_ACK) ;
 	}
-	else if (tsk->state == TCP_SYN_SENT && 
+	else if (tsk->state == TCP_SYN_SENT &&
 		cb->flags == (TCP_SYN | TCP_ACK) &&
 		cb->ack == tsk->snd_nxt)
 	{
@@ -99,11 +99,18 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		
 		wake_up (tsk->wait_connect) ;
 	}
-	else if (tsk->state == TCP_SYN_RECV && 
+	else if (tsk->state == TCP_ESTABLISHED &&
+		cb->flags == (TCP_SYN | TCP_ACK) &&
+		cb->ack == tsk->snd_nxt - 1)  // prevent ACK loss
+		tcp_send_control_packet (tsk, TCP_ACK) ;
+	else if (tsk->state == TCP_SYN_RECV &&
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
 		tsk->snd_una++ ;
+		tsk->cwnd = TCP_MSS ;
+		tsk->adv_wnd = cb->rwnd ;
+		tsk->ssthresh = cb->rwnd ;
 
 		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
@@ -164,8 +171,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 	
 	// drop
-	if (!is_tcp_seq_valid (tsk, cb))
-		return ;
+	//if (!is_tcp_seq_valid (tsk, cb))
+	//	return ;
 	
 	// Receive data
 	if ((tsk->state == TCP_ESTABLISHED || 
@@ -226,7 +233,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 
 		if (tsk->rcv_wnd <= 0)
 			log(DEBUG, "rcv_wnd = 0") ;
-		log(DEBUG, "send ack:%d", tsk->rcv_nxt) ;
+		log(DEBUG, "send ack:%d, rcv_wnd = %d", tsk->rcv_nxt, tsk->rcv_wnd) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 	}
 	
@@ -237,55 +244,62 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_CLOSE_WAIT) &&
 		cb->flags == TCP_ACK)
 	{
-		if (!list_empty(&(tsk->send_buf)))
+		if (cb->ack > tsk->snd_una) // receive new ack
 		{
-			struct snt_pkt *pkt_bak = list_entry (tsk->send_buf.next, struct snt_pkt, list) ;
-			struct iphdr *ip = packet_to_ip_hdr(pkt_bak->packet);
-			struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
-			if (cb->ack <= ntohl(tcp->seq))
-				goto rcv_dupack ;
-			else
+			remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
+			
+			if (tsk->cg_state == TCP_CG_RECOVERY && 
+				cb->ack < tsk->recovery_point) // patrial ack
+
 			{
-				remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
-				
+				log(DEBUG, "RECOVERY: fast retrans") ;
+				retrans_pkt (tsk, 0) ;
+			}
+			else if (tsk->cg_state != TCP_CG_OPEN) // full ack || cg_state == TCP_CG_DISORDER
+			{
+				log(DEBUG, "change to OPEN") ;
+				tsk->cg_state = TCP_CG_OPEN ;
+				tsk->dupack_times = 0 ;
+			}
+			
+			if (tsk->cg_state == TCP_CG_OPEN ||
+				tsk->cg_state == TCP_CG_DISORDER)
+			{
 				if (tsk->cwnd < tsk->ssthresh) // slow start
 					tsk->cwnd += TCP_MSS ; 
 				else                           // congestion advoidance
 					tsk->cwnd += (TCP_MSS * 1.0 / tsk->cwnd) * TCP_MSS ;
-
-				if (tsk->cg_state == TCP_CG_RECOVERY && 
-					cb->ack < tsk->recovery_point) // patrial ack
-
-				{
-					log(DEBUG, "RECOVERY: fast retrans") ;
-					retrans_pkt (tsk) ;
-				}
-				else if (tsk->cg_state != TCP_CG_OPEN) // full ack || cg_state == TCP_CG_DISORDER
-				{
-					log(DEBUG, "change to OPEN") ;
-					tsk->cg_state = TCP_CG_OPEN ;
-					tsk->dupack_times = 0 ;
-				}
 			}
 		}
-		else
+		else if (cb->ack == tsk->snd_una)  // receive dup ack
 		{
-rcv_dupack:
 			log(DEBUG, "dupack:%d", cb->ack) ;
-			tsk->dupack_times++ ;
-			if (tsk->cg_state == TCP_CG_DISORDER && tsk->dupack_times >= 3)
+			
+			if (tsk->cg_state != TCP_CG_LOSS)
+				tsk->dupack_times++ ;
+			
+			if (tsk->dupack_times == 1)  // OPEN
+			{
+				log(DEBUG, "change to DISORDER") ;
+				tsk->cg_state = TCP_CG_DISORDER ;
+			}
+			else if (tsk->dupack_times == 3)  // OPEN -> RECOVERY
 			{
 				tsk->cg_state = TCP_CG_RECOVERY ;
 				tsk->recovery_point = tsk->snd_nxt ;
 
-				retrans_pkt (tsk) ;
-				log(DEBUG, "DISORDER: fast retrans ") ;
+				log(DEBUG, "change to RECOVERY: fast retrans ") ;
+				retrans_pkt (tsk, 0) ;
 				
 				tsk->ssthresh = tsk->cwnd / 2 ;
-				tsk->cwnd = tsk->ssthresh ;
+				tsk->cwnd = tsk->ssthresh + 3 * TCP_MSS ;
 			}
-			else if (tsk->cg_state == TCP_CG_OPEN)
-				tsk->cg_state = TCP_CG_DISORDER ;
+			else if (tsk->dupack_times > 3) // RECOVERY
+			{
+				tsk->cwnd += TCP_MSS ;
+				log(DEBUG, "RECOVERY: fast retrans") ;
+				retrans_pkt (tsk, 0) ;
+			}
 		}
 	
 		int old_adv_wnd = tsk->adv_wnd ;

@@ -33,11 +33,16 @@ void tcp_scan_timer_list()
 		else if (timer->type == 1) // retrans
 		{
 			struct tcp_sock *tsk = retranstimer_to_tcp_sock (timer) ;
-			retrans_pkt (tsk) ;
-			
-			tsk->ssthresh = tsk->cwnd / 2 ;
-			tsk->cwnd = TCP_MSS ;
-			tsk->cg_state = TCP_CG_LOSS ;
+			retrans_pkt (tsk, 1) ;
+					
+			if (tsk->cg_state != TCP_CG_LOSS)
+			{
+				tsk->ssthresh = tsk->cwnd / 2 ;
+				tsk->cwnd = TCP_MSS ;
+				tsk->dupack_times = 0 ;
+				tsk->cg_state = TCP_CG_LOSS ;
+				log(DEBUG, "change to LOSS") ;
+			}
 		}
 		else // type = 2, zero window probe
 		{
@@ -48,7 +53,7 @@ void tcp_scan_timer_list()
 			tcp_send_packet (tsk, packet, hdr_size) ;
 			tsk->zwp_times++ ;
 
-			if (tsk->zwp_times >= 3)
+			if (tsk->zwp_times > 3)
 			{
 				log(DEBUG, "3 times zero window probe") ;
 				tcp_sock_close (tsk) ;
