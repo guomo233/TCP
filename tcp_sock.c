@@ -381,9 +381,6 @@ int tcp_sock_read(struct tcp_sock *tsk, char *buf, int size)
 // similar to write function, try to write to socket tsk
 int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 {
-	int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
-	int max_data_size = ETH_FRAME_LEN - hdr_size ;
-
 	int i = 0 ;
 	while (i < size)
 	{
@@ -398,9 +395,10 @@ int tcp_sock_write(struct tcp_sock *tsk, char *buf, int size)
 			sleep_on (tsk->wait_send) ;
 		}
 		
-		int data_size = min (max_data_size, size-i) ;
+		int data_size = min (TCP_MSS, size-i) ;
 		data_size = min (data_size, tsk->snd_wnd) ;
 		data_size = min (data_size, tsk->adv_wnd) ; // stream control
+		int hdr_size = ETHER_HDR_SIZE + IP_BASE_HDR_SIZE + TCP_BASE_HDR_SIZE ;
 		int pkt_size = data_size + hdr_size ;
 		
 		if (data_size <= 0)

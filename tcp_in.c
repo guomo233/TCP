@@ -90,6 +90,8 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		
 		tcp_update_window_safe (tsk, cb) ; // Update snd_wnd
 		tsk->adv_wnd = cb->rwnd ;
+		tsk->cwnd = TCP_MSS ;
+		tsk->ssthresh = cb->rwnd ;
 
 		tcp_set_state (tsk, TCP_ESTABLISHED) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
@@ -238,19 +240,24 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			else
 			{
 				remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
-				if (tsk->cg_state == TCP_CG_RECOVERY)
+				
+				if (tsk->cwnd < tsk->ssthresh) // slow start
+					tsk->cwnd += TCP_MSS ; 
+				else                           // congestion advoidance
+					tsk->cwnd += (TCP_MSS * 1.0 / tsk->cwnd) * TCP_MSS ;
+
+				if (tsk->cg_state == TCP_CG_RECOVERY && 
+					cb->ack < tsk->recovery_point) // patrial ack
+
 				{
-					if (cb->ack < tsk->recovery_point) // patrial ack
-					{
-						log(DEBUG, "RECOVERY: fast retrans") ;
-						retrans_pkt (tsk) ;
-					}
-					else // full ack
-					{
-						log(DEBUG, "change to OPEN") ;
-						tsk->cg_state = TCP_CG_OPEN ;
-						tsk->dupack_times = 0 ;
-					}
+					log(DEBUG, "RECOVERY: fast retrans") ;
+					retrans_pkt (tsk) ;
+				}
+				else if (tsk->cg_state != TCP_CG_OPEN) // full ack || cg_state == TCP_CG_DISORDER
+				{
+					log(DEBUG, "change to OPEN") ;
+					tsk->cg_state = TCP_CG_OPEN ;
+					tsk->dupack_times = 0 ;
 				}
 			}
 		}
@@ -263,8 +270,12 @@ rcv_dupack:
 			{
 				tsk->cg_state = TCP_CG_RECOVERY ;
 				tsk->recovery_point = tsk->snd_nxt ;
+
 				retrans_pkt (tsk) ;
 				log(DEBUG, "DISORDER: fast retrans ") ;
+				
+				tsk->ssthresh = tsk->cwnd / 2 ;
+				tsk->cwnd = tsk->ssthresh ;
 			}
 			else if (tsk->cg_state == TCP_CG_OPEN)
 				tsk->cg_state = TCP_CG_DISORDER ;

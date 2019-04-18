@@ -2,7 +2,8 @@
 #include "tcp_timer.h"
 #include "tcp_sock.h"
 
-#include "retrans.h" // fix - retrans
+#include "retrans.h" // fix
+#include "congestion_control.h" // fix
 
 #include <stdio.h>
 #include <unistd.h>
@@ -33,6 +34,10 @@ void tcp_scan_timer_list()
 		{
 			struct tcp_sock *tsk = retranstimer_to_tcp_sock (timer) ;
 			retrans_pkt (tsk) ;
+			
+			tsk->ssthresh = tsk->cwnd / 2 ;
+			tsk->cwnd = TCP_MSS ;
+			tsk->cg_state = TCP_CG_LOSS ;
 		}
 		else // type = 2, zero window probe
 		{
