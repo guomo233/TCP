@@ -56,7 +56,14 @@ void tcp_scan_timer_list()
 			if (tsk->zwp_times > 3)
 			{
 				log(DEBUG, "3 times zero window probe") ;
-				tcp_sock_close (tsk) ;
+				//tcp_sock_close (tsk) ;
+				tcp_send_control_packet (tsk, TCP_RST) ;
+				tcp_set_state (tsk, TCP_CLOSED) ;
+				tcp_unset_zwp_timer (tsk) ;
+		
+				if (!tsk->parent)
+					tcp_bind_unhash (tsk) ;
+				tcp_unhash (tsk) ; // auto free memory
 			}
 			else
 			{

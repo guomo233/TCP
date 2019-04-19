@@ -43,7 +43,14 @@ static inline void retrans_pkt (struct tcp_sock *tsk, int inc)
 	if (pkt_bak->retrans_times > 3)
 	{
 		log(DEBUG, "retrans 3 times") ;
-		tcp_sock_close (tsk) ;
+		//tcp_sock_close (tsk) ;
+		tcp_send_control_packet (tsk, TCP_RST) ;
+		tcp_set_state (tsk, TCP_CLOSED) ;
+		tcp_unset_retrans_timer (tsk) ;
+
+		if (!tsk->parent)
+			tcp_bind_unhash (tsk) ;
+		tcp_unhash (tsk) ; // auto free memory
 	}
 	else
 	{
@@ -52,10 +59,10 @@ static inline void retrans_pkt (struct tcp_sock *tsk, int inc)
 			tsk->retrans_timer.timeout *= 2 ;
 	}
 
-	struct iphdr *ip = packet_to_ip_hdr(packet);
+	/*struct iphdr *ip = packet_to_ip_hdr(packet);
 	struct tcphdr *tcp = (struct tcphdr *)((char *)ip + IP_BASE_HDR_SIZE);
 	int pl_len = ntohs(ip->tot_len) - IP_HDR_SIZE(ip) - TCP_HDR_SIZE(tcp) ;
-	//log(DEBUG, "retrans seq:(%d,%d), snd_wnd:%d", ntohl(tcp->seq), (ntohl(tcp->seq) + pl_len), tsk->snd_wnd) ;
+	log(DEBUG, "retrans seq:(%d,%d), snd_wnd:%d", ntohl(tcp->seq), (ntohl(tcp->seq) + pl_len), tsk->snd_wnd) ;*/
 }
 
 static inline void remove_ack_pkt (struct tcp_sock *tsk, int ack, int ack_type)

@@ -101,8 +101,11 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 	}
 	else if (tsk->state == TCP_ESTABLISHED &&
 		cb->flags == (TCP_SYN | TCP_ACK) &&
-		cb->ack == tsk->snd_nxt - 1)  // prevent ACK loss
+		cb->ack == tsk->snd_nxt)  // prevent ACK loss
+	{
+		log(DEBUG, "resend ACK") ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
+	}
 	else if (tsk->state == TCP_SYN_RECV &&
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
@@ -147,12 +150,14 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_FIN &&
 		cb->seq == tsk->rcv_nxt)
 	{
+		log(DEBUG, "150");
 		tsk->rcv_nxt = cb->seq_end ;
 		
 		tcp_set_state (tsk, TCP_TIME_WAIT) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 		
 		tsk->rcv_nxt = cb->seq ; // for TIME_WAIT to receive FIN
+		log(DEBUG, "157");
 		
 		//log(DEBUG, "receive FIN") ;
 		tcp_set_timewait_timer (tsk) ;
@@ -169,6 +174,10 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 
 		tcp_unhash (tsk) ;  // auto free memory
 	}
+	else if (tsk->state == TCP_LAST_ACK &&
+		cb->flags == TCP_FIN &&
+		cb->ack == tsk->snd_nxt - 1) // prevent ACK loss
+		tcp_send_control_packet (tsk, TCP_ACK) ;
 	
 	// drop
 	//if (!is_tcp_seq_valid (tsk, cb))
@@ -180,6 +189,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
+		log(DEBUG, "189");
 		if (cb->seq == tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd)
 		{
 			int seq = cb->seq ;
@@ -235,6 +245,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		//	log(DEBUG, "rcv_wnd = 0") ;
 		//log(DEBUG, "send ack:%d, rcv_wnd = %d", tsk->rcv_nxt, tsk->rcv_wnd) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
+		log(DEBUG, "245");
 	}
 	
 	// Receive ACK about sent data
