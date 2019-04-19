@@ -110,18 +110,20 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_ACK &&
 		cb->ack == tsk->snd_nxt)
 	{
-		tsk->snd_una++ ;
-		tsk->cwnd = TCP_MSS ;
-		tsk->adv_wnd = cb->rwnd ;
-		tsk->ssthresh = cb->rwnd ;
+		if (tsk->parent && !tcp_sock_accept_queue_full (tsk->parent))
+		{
+			tsk->snd_una++ ;
+			tsk->cwnd = TCP_MSS ;
+			tsk->adv_wnd = cb->rwnd ;
+			tsk->ssthresh = cb->rwnd ;
 
-		remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
+			remove_ack_pkt (tsk, cb->ack, TCP_CONTROL_ACK) ;
 		
-		tcp_sock_accept_enqueue (tsk) ;
+			tcp_sock_accept_enqueue (tsk) ;
+			tcp_set_state (tsk, TCP_ESTABLISHED) ;
 		
-		tcp_set_state (tsk, TCP_ESTABLISHED) ;
-		
-		wake_up (tsk->parent->wait_accept) ;
+			wake_up (tsk->parent->wait_accept) ;
+		}
 	}
 	
 	// Close
@@ -150,14 +152,12 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		cb->flags == TCP_FIN &&
 		cb->seq == tsk->rcv_nxt)
 	{
-		log(DEBUG, "150");
 		tsk->rcv_nxt = cb->seq_end ;
 		
 		tcp_set_state (tsk, TCP_TIME_WAIT) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
 		
 		tsk->rcv_nxt = cb->seq ; // for TIME_WAIT to receive FIN
-		log(DEBUG, "157");
 		
 		//log(DEBUG, "receive FIN") ;
 		tcp_set_timewait_timer (tsk) ;
@@ -189,7 +189,6 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		tsk->state == TCP_FIN_WAIT_2) &&
 		cb->pl_len > 0)
 	{
-		log(DEBUG, "189");
 		if (cb->seq == tsk->rcv_nxt && cb->seq_end <= tsk->rcv_nxt + tsk->rcv_wnd)
 		{
 			int seq = cb->seq ;
@@ -245,7 +244,6 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 		//	log(DEBUG, "rcv_wnd = 0") ;
 		//log(DEBUG, "send ack:%d, rcv_wnd = %d", tsk->rcv_nxt, tsk->rcv_wnd) ;
 		tcp_send_control_packet (tsk, TCP_ACK) ;
-		log(DEBUG, "245");
 	}
 	
 	// Receive ACK about sent data

@@ -26,7 +26,8 @@ void tcp_scan_timer_list()
 			
 			tcp_set_state (tsk, TCP_CLOSED) ;
 			tcp_unhash (tsk) ;
-			tcp_bind_unhash (tsk) ; // auto free memory
+			if (!tsk->parent)
+				tcp_bind_unhash (tsk) ; // auto free memory
 		
 			list_delete_entry (&(timer->list)) ;
 		}
