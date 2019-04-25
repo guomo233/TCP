@@ -321,6 +321,13 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			wake_up (tsk->wait_send) ;
 		}
 	}
-	
+
+	/*FILE *cwnd_fp ;
+	cwnd_fp = fopen ("cwnd.txt", "a+") ;
+	if (cwnd_fp && cb->flags == TCP_ACK)
+	{
+		fprintf (cwnd_fp, "%d\n", tsk->cwnd) ;
+		fclose (cwnd_fp) ;
+	}*/
 	//fprintf(stdout, "TODO: implement %s please.\n", __FUNCTION__);
 }
