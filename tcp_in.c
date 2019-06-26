@@ -258,7 +258,7 @@ void tcp_process(struct tcp_sock *tsk, struct tcp_cb *cb, char *packet)
 			remove_ack_pkt (tsk, cb->ack, TCP_DATA_ACK) ;
 			
 			if (tsk->cg_state == TCP_CG_RECOVERY && 
-				cb->ack < tsk->recovery_point) // patrial ack
+				cb->ack < tsk->recovery_point) // partial ack
 
 			{
 				//log(DEBUG, "RECOVERY: fast retrans") ;
